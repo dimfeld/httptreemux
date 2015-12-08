@@ -53,6 +53,9 @@ type TreeMux struct {
 	PanicHandler PanicHandler
 	// The default NotFoundHandler is http.NotFound.
 	NotFoundHandler func(w http.ResponseWriter, r *http.Request)
+	// The default OptionsHandler is a nil function. Set this function to
+	// automatically register a global OPTIONS handler for all registered paths.
+	OptionsHandler HandlerFunc
 	// MethodNotAllowedHandler is called when a pattern matches, but that
 	// pattern does not have a handler for the requested method. The default
 	// handler just writes the status code http.StatusMethodNotAllowed and adds
@@ -181,7 +184,7 @@ func (t *TreeMux) Handle(method, path string, handler HandlerFunc) {
 	if addSlash {
 		node.addSlash = true
 	}
-	node.setHandler(method, handler)
+	node.setHandler(method, handler, t.OptionsHandler)
 }
 
 // Syntactic sugar for Handle("GET", path, handler)

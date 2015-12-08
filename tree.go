@@ -40,7 +40,7 @@ func (n *node) sortStaticChild(i int) {
 	}
 }
 
-func (n *node) setHandler(verb string, handler HandlerFunc) {
+func (n *node) setHandler(verb string, handler HandlerFunc, optionsHandler HandlerFunc) {
 	if n.leafHandler == nil {
 		n.leafHandler = make(map[string]HandlerFunc)
 	}
@@ -49,6 +49,13 @@ func (n *node) setHandler(verb string, handler HandlerFunc) {
 		panic(fmt.Sprintf("%s already handles %s", n.path, verb))
 	}
 	n.leafHandler[verb] = handler
+	if optionsHandler == nil {
+		return
+	}
+	_, ok = n.leafHandler["OPTIONS"]
+	if !ok {
+		n.leafHandler["OPTIONS"] = optionsHandler
+	}
 }
 
 func (n *node) addPath(path string, wildcards []string) *node {

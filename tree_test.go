@@ -16,7 +16,7 @@ func addPath(t *testing.T, tree *node, path string) {
 	handler := func(w http.ResponseWriter, r *http.Request, urlParams map[string]string) {
 		urlParams["path"] = path
 	}
-	n.setHandler("GET", handler)
+	n.setHandler("GET", handler, nil)
 }
 
 var test *testing.T
@@ -264,8 +264,8 @@ func TestPanics(t *testing.T) {
 		sawPanic = false
 		defer panicHandler()
 		tree := &node{path: "/"}
-		tree.setHandler("GET", dummyHandler)
-		tree.setHandler("GET", dummyHandler)
+		tree.setHandler("GET", dummyHandler, nil)
+		tree.setHandler("GET", dummyHandler, nil)
 	}()
 	if !sawPanic {
 		t.Error("Expected panic when adding a duplicate handler for a pattern")
