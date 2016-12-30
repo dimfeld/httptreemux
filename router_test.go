@@ -842,45 +842,17 @@ func TestConcurrency(t *testing.T) {
 		routes = append(routes, route)
 	}
 
-	type opType int
-	const (
-		ADD opType = iota
-		HIT
-		MISS
-	)
-
-	type operation struct {
-		method string
-		route  string
-		op     opType
-	}
-
-	resultWg := sync.WaitGroup{}
-	opChan := make(chan operation, numRoutes)
-	results := []operation{}
-	resultHandler := func() {
-		for op := range opChan {
-			results = append(results, op)
-		}
-		resultWg.Done()
-	}
-
 	wg := sync.WaitGroup{}
 	addRoutes := func(base int, method string, routes []string) {
 		for i := 0; i < len(routes); i += 1 {
 			route := routes[(i+base)%len(routes)]
 			// t.Logf("Adding %s %s", method, route)
 			router.Handle(method, route, simpleHandler)
-			opChan <- operation{
-				method: method,
-				route:  route,
-				op:     ADD,
-			}
 		}
 		wg.Done()
 	}
 
-	handleRequests := func(base int, method string, routes []string, requireFound bool, c chan operation) {
+	handleRequests := func(base int, method string, routes []string, requireFound bool) {
 		for i := 0; i < len(routes); i += 1 {
 			route := routes[(i+base)%len(routes)]
 			// t.Logf("Serving %s %s", method, route)
@@ -891,18 +863,6 @@ func TestConcurrency(t *testing.T) {
 			if requireFound && w.Code != 200 {
 				t.Errorf("%s %s request failed", method, route)
 			}
-
-			if c != nil {
-				op := HIT
-				if w.Code != 200 {
-					op = MISS
-				}
-				c <- operation{
-					method: method,
-					route:  route,
-					op:     op,
-				}
-			}
 		}
 		wg.Done()
 	}
@@ -910,10 +870,7 @@ func TestConcurrency(t *testing.T) {
 	wg.Add(12)
 	initialRoutes := routes[0 : numRoutes/10]
 	addRoutes(0, "GET", initialRoutes)
-	handleRequests(0, "GET", initialRoutes, true, nil)
-
-	resultWg.Add(1)
-	go resultHandler()
+	handleRequests(0, "GET", initialRoutes, true)
 
 	concurrentRoutes := routes[numRoutes/10:]
 	go addRoutes(100, "GET", concurrentRoutes)
@@ -921,29 +878,21 @@ func TestConcurrency(t *testing.T) {
 	go addRoutes(300, "PATCH", concurrentRoutes)
 	go addRoutes(400, "PUT", concurrentRoutes)
 	go addRoutes(500, "DELETE", concurrentRoutes)
-	go handleRequests(50, "GET", routes, false, opChan)
-	go handleRequests(150, "POST", routes, false, opChan)
-	go handleRequests(250, "PATCH", routes, false, opChan)
-	go handleRequests(350, "PUT", routes, false, opChan)
-	go handleRequests(450, "DELETE", routes, false, opChan)
+	go handleRequests(50, "GET", routes, false)
+	go handleRequests(150, "POST", routes, false)
+	go handleRequests(250, "PATCH", routes, false)
+	go handleRequests(350, "PUT", routes, false)
+	go handleRequests(450, "DELETE", routes, false)
 
 	wg.Wait()
 
-	// Finally make sure all the routes were added properly.
-	close(opChan)
-	resultWg.Wait()
-
-	replay := map[string]bool{}
-	for _, op := range results {
-		key := op.method + " " + op.route
-		if op.op == ADD {
-			replay[key] = true
-		} else if op.op == MISS && replay[key] {
-			t.Errorf("Route %s should have been added, but was a miss", key)
-		} else if op.op == HIT && !replay[key] {
-			t.Errorf("Route %s was hit before it was added", key)
-		}
-	}
+	// Finally check all the routes and make sure they exist.
+	wg.Add(5)
+	handleRequests(0, "GET", routes, true)
+	handleRequests(0, "POST", concurrentRoutes, true)
+	handleRequests(0, "PATCH", concurrentRoutes, true)
+	handleRequests(0, "PUT", concurrentRoutes, true)
+	handleRequests(0, "DELETE", concurrentRoutes, true)
 }
 
 func BenchmarkRouterSimple(b *testing.B) {
