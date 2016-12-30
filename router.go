@@ -110,13 +110,6 @@ func (t *TreeMux) lookup(w http.ResponseWriter, r *http.Request) (HandlerFunc, m
 		path = path[:pathLen-1]
 	}
 
-	if t.ConcurrencySafe {
-		// In concurrency safe mode, we acquire a read lock on the mutex for any access.
-		// This is optional so that we don't have any potential performance loss in high-usage scenarios.
-		t.mutex.RLock()
-		defer t.mutex.RUnlock()
-	}
-
 	n, handler, params := t.root.search(r.Method, path[1:])
 	if n == nil {
 		if t.RedirectCleanPath {
@@ -190,7 +183,18 @@ func (t *TreeMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		defer t.serveHTTPPanic(w, r)
 	}
 
+	if t.ConcurrencySafe {
+		// In concurrency safe mode, we acquire a read lock on the mutex for any access.
+		// This is optional to avoid potential performance loss in high-usage scenarios.
+		t.mutex.RLock()
+	}
+
 	handler, paramMap := t.lookup(w, r)
+
+	if t.ConcurrencySafe {
+		t.mutex.RUnlock()
+	}
+
 	if handler != nil {
 		r = t.setDefaultRequestContext(r)
 		handler(w, r, paramMap)
