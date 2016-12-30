@@ -1,13 +1,16 @@
 package httptreemux
 
 import (
+	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"reflect"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -795,6 +798,150 @@ func TestEscapedRoutes(t *testing.T) {
 					}
 				}
 			}
+		}
+	}
+}
+
+func TestConcurrency(t *testing.T) {
+	router := New()
+	router.ConcurrencySafe = true
+
+	// First create a bunch of routes
+	numRoutes := 10000
+
+	letters := "abcdefghijhklmnopqrstuvwxyz"
+	wordMap := map[string]bool{}
+	for i := 0; i < numRoutes/2; i += 1 {
+		length := (i % 4) + 4
+
+		wordBytes := make([]byte, length)
+		for charIndex := 0; charIndex < length; charIndex += 1 {
+			wordBytes[charIndex] = letters[(i*3+charIndex*4)%len(letters)]
+		}
+		wordMap[string(wordBytes)] = true
+	}
+
+	words := make([]string, 0, len(wordMap))
+	for word := range wordMap {
+		words = append(words, word)
+	}
+
+	routes := make([]string, 0, numRoutes)
+	createdRoutes := map[string]bool{}
+	rand.Seed(0)
+	for len(routes) < numRoutes {
+		first := words[rand.Int()%len(words)]
+		second := words[rand.Int()%len(words)]
+		third := words[rand.Int()%len(words)]
+		route := fmt.Sprintf("/%s/%s/%s", first, second, third)
+
+		if createdRoutes[route] {
+			continue
+		}
+		createdRoutes[route] = true
+		routes = append(routes, route)
+	}
+
+	type opType int
+	const (
+		ADD opType = iota
+		HIT
+		MISS
+	)
+
+	type operation struct {
+		method string
+		route  string
+		op     opType
+	}
+
+	resultWg := sync.WaitGroup{}
+	opChan := make(chan operation, numRoutes)
+	results := []operation{}
+	resultHandler := func() {
+		for op := range opChan {
+			results = append(results, op)
+		}
+		resultWg.Done()
+	}
+
+	wg := sync.WaitGroup{}
+	addRoutes := func(base int, method string, routes []string) {
+		for i := 0; i < len(routes); i += 1 {
+			route := routes[(i+base)%len(routes)]
+			// t.Logf("Adding %s %s", method, route)
+			router.Handle(method, route, simpleHandler)
+			opChan <- operation{
+				method: method,
+				route:  route,
+				op:     ADD,
+			}
+		}
+		wg.Done()
+	}
+
+	handleRequests := func(base int, method string, routes []string, requireFound bool, c chan operation) {
+		for i := 0; i < len(routes); i += 1 {
+			route := routes[(i+base)%len(routes)]
+			// t.Logf("Serving %s %s", method, route)
+			r, _ := newRequest(method, route, nil)
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, r)
+
+			if requireFound && w.Code != 200 {
+				t.Errorf("%s %s request failed", method, route)
+			}
+
+			if c != nil {
+				op := HIT
+				if w.Code != 200 {
+					op = MISS
+				}
+				c <- operation{
+					method: method,
+					route:  route,
+					op:     op,
+				}
+			}
+		}
+		wg.Done()
+	}
+
+	wg.Add(12)
+	initialRoutes := routes[0 : numRoutes/10]
+	addRoutes(0, "GET", initialRoutes)
+	handleRequests(0, "GET", initialRoutes, true, nil)
+
+	resultWg.Add(1)
+	go resultHandler()
+
+	concurrentRoutes := routes[numRoutes/10:]
+	go addRoutes(100, "GET", concurrentRoutes)
+	go addRoutes(200, "POST", concurrentRoutes)
+	go addRoutes(300, "PATCH", concurrentRoutes)
+	go addRoutes(400, "PUT", concurrentRoutes)
+	go addRoutes(500, "DELETE", concurrentRoutes)
+	go handleRequests(50, "GET", routes, false, opChan)
+	go handleRequests(150, "POST", routes, false, opChan)
+	go handleRequests(250, "PATCH", routes, false, opChan)
+	go handleRequests(350, "PUT", routes, false, opChan)
+	go handleRequests(450, "DELETE", routes, false, opChan)
+
+	wg.Wait()
+
+	// Finally make sure all the routes were added properly.
+	close(opChan)
+	resultWg.Wait()
+
+	replay := map[string]bool{}
+	for _, op := range results {
+		key := op.method + " " + op.route
+		if op.op == ADD {
+			replay[key] = true
+		} else if op.op == MISS && replay[key] {
+			t.Errorf("Route %s should have been added, but was a miss", key)
+		} else if op.op == HIT && !replay[key] {
+			t.Errorf("Route %s was hit before it was added", key)
 		}
 	}
 }
