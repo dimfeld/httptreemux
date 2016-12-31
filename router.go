@@ -183,7 +183,7 @@ func (t *TreeMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		defer t.serveHTTPPanic(w, r)
 	}
 
-	if t.ConcurrencySafe {
+	if t.SafeAddRoutesWhileRunning {
 		// In concurrency safe mode, we acquire a read lock on the mutex for any access.
 		// This is optional to avoid potential performance loss in high-usage scenarios.
 		t.mutex.RLock()
@@ -191,7 +191,7 @@ func (t *TreeMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	handler, paramMap := t.lookup(w, r)
 
-	if t.ConcurrencySafe {
+	if t.SafeAddRoutesWhileRunning {
 		t.mutex.RUnlock()
 	}
 

@@ -74,10 +74,10 @@ type TreeMux struct {
 	// a version passed through URL.EscapedPath. This behavior is disabled by default.
 	EscapeAddedRoutes bool
 
-	// ConcurrencySafe tells the router to protect all accesses to the tree with an RWMutex. This is only needed
+	// SafeAddRoutesWhileRunning tells the router to protect all accesses to the tree with an RWMutex. This is only needed
 	// if you are going to add routes after the router has already begun serving requests. There is a potential
 	// performance penalty at high load.
-	ConcurrencySafe bool
+	SafeAddRoutesWhileRunning bool
 }
 
 func (t *TreeMux) setDefaultRequestContext(r *http.Request) *http.Request {

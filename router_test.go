@@ -804,7 +804,7 @@ func TestEscapedRoutes(t *testing.T) {
 
 func TestConcurrency(t *testing.T) {
 	router := New()
-	router.ConcurrencySafe = true
+	router.SafeAddRoutesWhileRunning = true
 
 	// First create a bunch of routes
 	numRoutes := 10000
