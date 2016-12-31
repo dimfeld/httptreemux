@@ -802,13 +802,8 @@ func TestEscapedRoutes(t *testing.T) {
 	}
 }
 
-func TestConcurrency(t *testing.T) {
-	router := New()
-	router.SafeAddRoutesWhileRunning = true
-
-	// First create a bunch of routes
-	numRoutes := 10000
-
+// Create a bunch of paths for testing.
+func createRoutes(numRoutes int) []string {
 	letters := "abcdefghijhklmnopqrstuvwxyz"
 	wordMap := map[string]bool{}
 	for i := 0; i < numRoutes/2; i += 1 {
@@ -841,6 +836,66 @@ func TestConcurrency(t *testing.T) {
 		createdRoutes[route] = true
 		routes = append(routes, route)
 	}
+
+	return routes
+}
+
+// TestWriteConcurrency ensures that the router works with multiple goroutines adding
+// routes concurrently.
+func TestWriteConcurrency(t *testing.T) {
+	router := New()
+
+	// First create a bunch of routes
+	numRoutes := 10000
+	routes := createRoutes(numRoutes)
+
+	wg := sync.WaitGroup{}
+	addRoutes := func(base int, method string) {
+		for i := 0; i < len(routes); i += 1 {
+			route := routes[(i+base)%len(routes)]
+			// t.Logf("Adding %s %s", method, route)
+			router.Handle(method, route, simpleHandler)
+		}
+		wg.Done()
+	}
+
+	wg.Add(5)
+	go addRoutes(100, "GET")
+	go addRoutes(200, "POST")
+	go addRoutes(300, "PATCH")
+	go addRoutes(400, "PUT")
+	go addRoutes(500, "DELETE")
+	wg.Wait()
+
+	handleRequests := func(method string) {
+		for _, route := range routes {
+			// t.Logf("Serving %s %s", method, route)
+			r, _ := newRequest(method, route, nil)
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, r)
+
+			if w.Code != 200 {
+				t.Errorf("%s %s request failed", method, route)
+			}
+		}
+	}
+
+	handleRequests("GET")
+	handleRequests("POST")
+	handleRequests("PATCH")
+	handleRequests("PUT")
+	handleRequests("DELETE")
+}
+
+// TestReadWriteConcurrency ensures that when SafeAddRoutesWhileRunning is enabled,
+// the router is able to add routes while serving traffic.
+func TestReadWriteConcurrency(t *testing.T) {
+	router := New()
+	router.SafeAddRoutesWhileRunning = true
+
+	// First create a bunch of routes
+	numRoutes := 10000
+	routes := createRoutes(numRoutes)
 
 	wg := sync.WaitGroup{}
 	addRoutes := func(base int, method string, routes []string) {
