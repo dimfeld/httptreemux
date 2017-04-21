@@ -236,13 +236,14 @@ func (n *node) search(method, path string) (found *node, handler HandlerFunc, pa
 	// if test != nil {
 	// 	test.Logf("Searching for %s in %s", path, n.dumpTree("", ""))
 	// }
+	n.mu.Lock()
+	defer n.mu.Unlock()
 	pathLen := len(path)
 	if pathLen == 0 {
 		if len(n.leafHandler) == 0 {
 			return nil, nil, nil
-		} else {
-			return n, n.leafHandler[method], nil
 		}
+		return n, n.leafHandler[method], nil
 	}
 
 	// First see if this matches a static token.
