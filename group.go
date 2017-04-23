@@ -1,9 +1,15 @@
 package httptreemux
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
+)
+
+var (
+	PATH_NOT_FOUND   = errors.New("Path not found")
+	METHOD_NOT_FOUND = errors.New("Method does not exist on path")
 )
 
 type Group struct {
@@ -129,6 +135,70 @@ func (g *Group) Handle(method string, path string, handler HandlerFunc) {
 	}
 
 	addOne(path)
+}
+
+func (g *Group) removeHandlerInternal(method, path string) error {
+	// Remove trailing slash
+	if path[len(path)-1] == '/' {
+		path = path[:len(path)-1]
+	}
+
+	found, handler, params := g.mux.root.search(method, path)
+	if found == nil {
+		return PATH_NOT_FOUND
+	}
+
+	// Ensure that the parameter names given match what was actually found.
+	for foundParam, expectedParam := range params {
+		if len(expectedParam) < 1 {
+			return PATH_NOT_FOUND
+		}
+
+		expectedParam = expectedParam[1:]
+		if found.leafWildcardNames[foundParam] != expectedParam {
+			return PATH_NOT_FOUND
+		}
+	}
+
+	if handler == nil {
+		return METHOD_NOT_FOUND
+	}
+
+	found.leafHandler[method] = nil
+
+	if method == "GET" && found.implicitHead {
+		found.leafHandler["HEAD"] = nil
+	}
+
+	return nil
+}
+
+func (g *Group) RemoveHandler(method, path string) error {
+	g.mux.mutex.Lock()
+	defer g.mux.mutex.Unlock()
+
+	err := g.removeHandlerInternal(method, path)
+	if err != nil {
+		return err
+	}
+
+	if g.mux.EscapeAddedRoutes {
+		u, err := url.ParseRequestURI(path)
+		if err != nil {
+			return errors.New("URL parsing error " + err.Error() + " on url " + path)
+		}
+
+		escapedPath := unescapeSpecial(u.String())
+
+		if escapedPath != path {
+			err = g.removeHandlerInternal(method, escapedPath)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 // Syntactic sugar for Handle("GET", path, handler)
