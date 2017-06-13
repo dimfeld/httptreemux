@@ -68,9 +68,7 @@ func (t *TreeMux) redirectStatusCode(method string) (int, bool) {
 	case Redirect307:
 		return http.StatusTemporaryRedirect, true
 	case Redirect308:
-		// Go doesn't have a constant for this yet. Yet another sign
-		// that you probably shouldn't use it.
-		return 308, true
+		return http.StatusPermanentRedirect, true
 	case UseHandler:
 		return 0, false
 	default:
