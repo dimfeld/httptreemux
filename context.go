@@ -110,7 +110,7 @@ func ContextParams(ctx context.Context) map[string]string {
 	return map[string]string{}
 }
 
-// paramsContextKey is used to retrieve a path's params map from a request's context.
 type contextKey int
 
+// paramsContextKey is used to retrieve a path's params map from a request's context.
 const paramsContextKey contextKey = 0
