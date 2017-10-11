@@ -311,7 +311,7 @@ func (n *node) search(method, path string) (found *node, handler HandlerFunc, pa
 		// Found a handler, or we found a catchall node without a handler.
 		// Either way, return it since there's nothing left to check after this.
 		if handler != nil || found == nil {
-			unescaped, err := url.QueryUnescape(path)
+			unescaped, err := url.PathUnescape(path)
 			if err != nil {
 				unescaped = path
 			}
