@@ -2,7 +2,7 @@
 
 package httptreemux
 
-import "url"
+import "net/url"
 
 func unescape(path string) (string, error) {
 	return url.QueryUnescape(path)
