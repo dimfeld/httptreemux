@@ -1044,9 +1044,9 @@ func TestLookup(t *testing.T) {
 }
 
 func TestRedirectEscapedPath(t *testing.T) {
-	router := NewContextMux()
+	router := New()
 
-	testHandler := func(w http.ResponseWriter, r *http.Request) {}
+	testHandler := func(w http.ResponseWriter, r *http.Request, params map[string]string) {}
 
 	router.GET("/:escaped/", testHandler)
 
@@ -1061,15 +1061,15 @@ func TestRedirectEscapedPath(t *testing.T) {
 
 	router.ServeHTTP(w, r)
 
-	path, err := w.Result().Location()
-	if err != nil {
-		t.Error(err)
-		return
+	if w.Code != http.StatusMovedPermanently {
+		t.Errorf("Expected status 301 but saw %d", w.Code)
 	}
+
+	path := w.Header().Get("Location")
 	expected := "/Test%20P@th/"
-	if path.String() != expected {
+	if path != expected {
 		t.Errorf("Given path wasn't escaped correctly.\n"+
-			"Expected: %q\nBut got: %q", expected, path.String())
+			"Expected: %q\nBut got: %q", expected, path)
 	}
 }
 
