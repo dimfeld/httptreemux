@@ -1057,7 +1057,7 @@ func TestRedirectEscapedPath(t *testing.T) {
 		return
 	}
 
-	r, _ := newRequest(http.MethodGet, u.String(), nil)
+	r, _ := newRequest("GET", u.String(), nil)
 
 	router.ServeHTTP(w, r)
 
