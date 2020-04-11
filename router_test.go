@@ -1101,10 +1101,30 @@ func TestMiddleware(t *testing.T) {
 		}
 	}
 
+	newParamsMiddleware := func(name string, paramKey string) MiddlewareFunc {
+		return func(next HandlerFunc) HandlerFunc {
+			return func(w http.ResponseWriter, r *http.Request, params map[string]string) {
+				t.Log(params)
+				record(name)
+				record(params[paramKey])
+				next(w, r, params)
+			}
+		}
+	}
+
+	newHttpHandlerMiddleware := func(name string) func(http.Handler) http.Handler {
+		return func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				record(name)
+				next.ServeHTTP(w, r)
+			})
+		}
+	}
+
 	router := New()
 	w := httptest.NewRecorder()
 
-	// No middlewares.
+	t.Log("No middlewares.")
 	{
 		router.GET("/h1", newHandler("h1"))
 
@@ -1114,7 +1134,7 @@ func TestMiddleware(t *testing.T) {
 		assertExecLog([]string{"h1"})
 	}
 
-	// Test route with and without middleware.
+	t.Log("Test route with and without middleware.")
 	{
 		execLog = nil
 		router.Use(newMiddleware("m1"))
@@ -1129,7 +1149,7 @@ func TestMiddleware(t *testing.T) {
 		assertExecLog([]string{"h1", "m1", "h2"})
 	}
 
-	// NewGroup inherits middlewares but has its own stack.
+	t.Log("NewGroup inherits middlewares but has its own stack.")
 	{
 		execLog = nil
 		g := router.NewGroup("/g1")
@@ -1145,7 +1165,7 @@ func TestMiddleware(t *testing.T) {
 		assertExecLog([]string{"m1", "h2", "m1", "m2", "h3"})
 	}
 
-	// Middleware can modify params.
+	t.Log("Middleware can modify params.")
 	{
 		execLog = nil
 		g := router.NewGroup("/g2")
@@ -1172,7 +1192,7 @@ func TestMiddleware(t *testing.T) {
 		assertExecLog([]string{"m1", "m4", "h6"})
 	}
 
-	// Middleware can serve request without calling next.
+	t.Log("Middleware can serve request without calling next.")
 	{
 		execLog = nil
 		router.Use(func(_ HandlerFunc) HandlerFunc {
@@ -1195,6 +1215,38 @@ func TestMiddleware(t *testing.T) {
 			t.Fatalf("got %s, wanted %s", w.Body.String(), "pong")
 		}
 	}
+
+	t.Log("Test that params are passed to middleware")
+	{
+		router := New()
+		execLog = nil
+		router.Use(newParamsMiddleware("m1", "p"))
+		router.GET("/h2/:p", newHandler("h2"))
+
+		req, _ := newRequest("GET", "/h2/paramvalue", nil)
+		router.ServeHTTP(w, req)
+
+		assertExecLog([]string{"m1", "paramvalue", "h2"})
+	}
+
+	t.Log("Http Handler Middleware")
+	{
+		router := New()
+		w := httptest.NewRecorder()
+		execLog = nil
+		router.UseHandler(newHttpHandlerMiddleware("m5"))
+		router.Use(newParamsMiddleware("m6", "p"))
+		router.GET("/h7/:p", newHandler("h7"))
+
+		req, _ := newRequest("GET", "/h7/paramvalue", nil)
+		router.ServeHTTP(w, req)
+
+		req, _ = newRequest("GET", "/h7/anothervalue", nil)
+		router.ServeHTTP(w, req)
+
+		assertExecLog([]string{"m5", "m6", "paramvalue", "h7", "m5", "m6", "anothervalue", "h7"})
+	}
+
 }
 
 func BenchmarkRouterSimple(b *testing.B) {
