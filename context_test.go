@@ -4,6 +4,7 @@ package httptreemux
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -23,8 +24,12 @@ type IContextGroup interface {
 }
 
 func TestContextParams(t *testing.T) {
-	m := map[string]string{"id": "123"}
-	ctx := context.WithValue(context.Background(), paramsContextKey, m)
+	m := contextData{
+		params: map[string]string{"id": "123"},
+		route:  "",
+	}
+
+	ctx := context.WithValue(context.Background(), routeContextKey, m)
 
 	params := ContextParams(ctx)
 	if params == nil {
@@ -32,96 +37,142 @@ func TestContextParams(t *testing.T) {
 	}
 
 	if v := params["id"]; v != "123" {
-		t.Errorf("expected '%s', but got '%#v'", m["id"], params["id"])
+		t.Errorf("expected '%s', but got '%#v'", m.params["id"], params["id"])
+	}
+}
+
+func TestContextData(t *testing.T) {
+	p := contextData{
+		route:  "route/path",
+		params: map[string]string{"id": "123"},
+	}
+
+	ctx := context.WithValue(context.Background(), routeContextKey, p)
+
+	ctxData := ContextData(ctx)
+	pathValue := ctxData.Route()
+	if pathValue != p.route {
+		t.Errorf("expected '%s', but got '%s'", p, pathValue)
+	}
+
+	params := ctxData.Params()
+	if v := params["id"]; v != "123" {
+		t.Errorf("expected '%s', but got '%#v'", p.params["id"], params["id"])
+	}
+}
+
+func TestContextDataWithEmptyParams(t *testing.T) {
+	p := contextData{
+		route:  "route/path",
+		params: nil,
+	}
+
+	ctx := context.WithValue(context.Background(), routeContextKey, p)
+	params := ContextData(ctx).Params()
+	if params == nil {
+		t.Errorf("ContextData.Params should never return nil")
 	}
 }
 
 func TestContextGroupMethods(t *testing.T) {
 	for _, scenario := range scenarios {
-		t.Log(scenario.description)
-		testContextGroupMethods(t, scenario.RequestCreator, true, false)
-		testContextGroupMethods(t, scenario.RequestCreator, false, false)
-		testContextGroupMethods(t, scenario.RequestCreator, true, true)
-		testContextGroupMethods(t, scenario.RequestCreator, false, true)
+		t.Run(scenario.description, func(t *testing.T) {
+			testContextGroupMethods(t, scenario.RequestCreator, true, false)
+			testContextGroupMethods(t, scenario.RequestCreator, false, false)
+			testContextGroupMethods(t, scenario.RequestCreator, true, true)
+			testContextGroupMethods(t, scenario.RequestCreator, false, true)
+		})
 	}
 }
 
 func testContextGroupMethods(t *testing.T, reqGen RequestCreator, headCanUseGet bool, useContextRouter bool) {
-	t.Logf("Running test: headCanUseGet %v, useContextRouter %v", headCanUseGet, useContextRouter)
+	t.Run(fmt.Sprintf("headCanUseGet %v, useContextRouter %v", headCanUseGet, useContextRouter), func(t *testing.T) {
+		var result string
+		makeHandler := func(method, expectedRoutePath string, hasParam bool) http.HandlerFunc {
+			return func(w http.ResponseWriter, r *http.Request) {
+				result = method
 
-	var result string
-	makeHandler := func(method string) http.HandlerFunc {
-		return func(w http.ResponseWriter, r *http.Request) {
-			result = method
+				// Test Legacy Accessor
+				var v string
+				v, ok := ContextParams(r.Context())["param"]
+				if hasParam && !ok {
+					t.Error("missing key 'param' in context from ContextParams")
+				}
 
-			v, ok := ContextParams(r.Context())["param"]
-			if !ok {
-				t.Error("missing key 'param' in context")
-			}
+				ctxData := ContextData(r.Context())
+				v, ok = ctxData.Params()["param"]
+				if hasParam && !ok {
+					t.Error("missing key 'param' in context from ContextData")
+				}
 
-			if headCanUseGet && (method == "GET" || v == "HEAD") {
-				return
-			}
+				routePath := ctxData.Route()
+				if routePath != expectedRoutePath {
+					t.Errorf("Expected context to have route path '%s', saw %s", expectedRoutePath, routePath)
+				}
 
-			if v != method {
-				t.Errorf("invalid key 'param' in context; expected '%s' but got '%s'", method, v)
+				if headCanUseGet && (method == "GET" || v == "HEAD") {
+					return
+				}
+				if hasParam && v != method {
+					t.Errorf("invalid key 'param' in context; expected '%s' but got '%s'", method, v)
+				}
 			}
 		}
-	}
 
-	var router http.Handler
-	var rootGroup IContextGroup
+		var router http.Handler
+		var rootGroup IContextGroup
 
-	if useContextRouter {
-		root := NewContextMux()
-		root.HeadCanUseGet = headCanUseGet
-		t.Log(root.TreeMux.HeadCanUseGet)
-		router = root
-		rootGroup = root
-	} else {
-		root := New()
-		root.HeadCanUseGet = headCanUseGet
-		router = root
-		rootGroup = root.UsingContext()
-	}
-
-	cg := rootGroup.NewGroup("/base").NewGroup("/user")
-	cg.GET("/:param", makeHandler("GET"))
-	cg.POST("/:param", makeHandler("POST"))
-	cg.PATCH("/:param", makeHandler("PATCH"))
-	cg.PUT("/:param", makeHandler("PUT"))
-	cg.DELETE("/:param", makeHandler("DELETE"))
-
-	testMethod := func(method, expect string) {
-		result = ""
-		w := httptest.NewRecorder()
-		r, _ := reqGen(method, "/base/user/"+method, nil)
-		router.ServeHTTP(w, r)
-		if expect == "" && w.Code != http.StatusMethodNotAllowed {
-			t.Errorf("Method %s not expected to match but saw code %d", method, w.Code)
+		if useContextRouter {
+			root := NewContextMux()
+			root.HeadCanUseGet = headCanUseGet
+			t.Log(root.TreeMux.HeadCanUseGet)
+			router = root
+			rootGroup = root
+		} else {
+			root := New()
+			root.HeadCanUseGet = headCanUseGet
+			router = root
+			rootGroup = root.UsingContext()
 		}
 
-		if result != expect {
-			t.Errorf("Method %s got result %s", method, result)
+		cg := rootGroup.NewGroup("/base").NewGroup("/user")
+		cg.GET("/:param", makeHandler("GET", cg.group.path+"/:param", true))
+		cg.POST("/:param", makeHandler("POST", cg.group.path+"/:param", true))
+		cg.PATCH("/PATCH", makeHandler("PATCH", cg.group.path+"/PATCH", false))
+		cg.PUT("/:param", makeHandler("PUT", cg.group.path+"/:param", true))
+		cg.Handler("DELETE", "/:param", http.HandlerFunc(makeHandler("DELETE", cg.group.path+"/:param", true)))
+
+		testMethod := func(method, expect string) {
+			result = ""
+			w := httptest.NewRecorder()
+			r, _ := reqGen(method, "/base/user/"+method, nil)
+			router.ServeHTTP(w, r)
+			if expect == "" && w.Code != http.StatusMethodNotAllowed {
+				t.Errorf("Method %s not expected to match but saw code %d", method, w.Code)
+			}
+
+			if result != expect {
+				t.Errorf("Method %s got result %s", method, result)
+			}
 		}
-	}
 
-	testMethod("GET", "GET")
-	testMethod("POST", "POST")
-	testMethod("PATCH", "PATCH")
-	testMethod("PUT", "PUT")
-	testMethod("DELETE", "DELETE")
+		testMethod("GET", "GET")
+		testMethod("POST", "POST")
+		testMethod("PATCH", "PATCH")
+		testMethod("PUT", "PUT")
+		testMethod("DELETE", "DELETE")
 
-	if headCanUseGet {
-		t.Log("Test implicit HEAD with HeadCanUseGet = true")
-		testMethod("HEAD", "GET")
-	} else {
-		t.Log("Test implicit HEAD with HeadCanUseGet = false")
-		testMethod("HEAD", "")
-	}
+		if headCanUseGet {
+			t.Log("Test implicit HEAD with HeadCanUseGet = true")
+			testMethod("HEAD", "GET")
+		} else {
+			t.Log("Test implicit HEAD with HeadCanUseGet = false")
+			testMethod("HEAD", "")
+		}
 
-	cg.HEAD("/:param", makeHandler("HEAD"))
-	testMethod("HEAD", "HEAD")
+		cg.HEAD("/:param", makeHandler("HEAD", cg.group.path+"/:param", true))
+		testMethod("HEAD", "HEAD")
+	})
 }
 
 func TestNewContextGroup(t *testing.T) {
