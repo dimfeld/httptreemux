@@ -60,8 +60,9 @@ func (cg *ContextGroup) NewGroup(path string) *ContextGroup {
 func (cg *ContextGroup) Handle(method, path string, handler http.HandlerFunc) {
 	fullPath := cg.group.path + path
 	cg.group.Handle(method, path, func(w http.ResponseWriter, r *http.Request, params map[string]string) {
+		r = r.WithContext(AddRouteToContext(r.Context(), fullPath))
 		if params != nil {
-			r = r.WithContext(AddRouteToContext(AddParamsToContext(r.Context(), params), fullPath))
+			r = r.WithContext(AddParamsToContext(r.Context(), params))
 		}
 		handler(w, r)
 	})
@@ -72,8 +73,9 @@ func (cg *ContextGroup) Handle(method, path string, handler http.HandlerFunc) {
 func (cg *ContextGroup) Handler(method, path string, handler http.Handler) {
 	fullPath := cg.group.path + path
 	cg.group.Handle(method, path, func(w http.ResponseWriter, r *http.Request, params map[string]string) {
+		r = r.WithContext(AddRouteToContext(r.Context(), fullPath))
 		if params != nil {
-			r = r.WithContext(AddRouteToContext(AddParamsToContext(r.Context(), params), fullPath))
+			r = r.WithContext(AddParamsToContext(r.Context(), params))
 		}
 		handler.ServeHTTP(w, r)
 	})
