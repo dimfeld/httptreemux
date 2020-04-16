@@ -36,12 +36,12 @@ group.GET("/v1/:id", func(w http.ResponseWriter, r *http.Request, params map[str
 // UsingContext returns a version of the router or group with context support.
 ctxGroup := group.UsingContext() // sibling to 'group' node in tree
 ctxGroup.GET("/v2/:id", func(w http.ResponseWriter, r *http.Request) {
-    ctx := r.Context()
-    params := httptreemux.ContextParams(r.Context())
+    ctxData := httptreemux.ContextData(r.Context())
+    params := ctxData.Params()
     id := params["id"]
 
     // Useful for middleware to see which route was hit without dealing with wildcards
-    routePath := httptreemux.ContextRoute(ctx)
+    routePath := ctxData.Route()
 
     // Prints GET /api/v2/:id id=...
     fmt.Fprintf(w, "GET %s id=%s", routePath, id)
@@ -64,12 +64,12 @@ router.GET("/:page", func(w http.ResponseWriter, r *http.Request) {
 
 group := router.NewGroup("/api")
 group.GET("/v1/:id", func(w http.ResponseWriter, r *http.Request) {
-    ctx := r.Context()
-    params := httptreemux.ContextParams(ctx)
+    ctxData := httptreemux.ContextData(r.Context())
+    params := ctxData.Params()
     id := params["id"]
 
     // Useful for middleware to see which route was hit without dealing with wildcards
-    routePath := httptreemux.ContextRoute(ctx)
+    routePath := ctxData.Route()
 
     // Prints GET /api/v1/:id id=...
     fmt.Fprintf(w, "GET %s id=%s", routePath, id)

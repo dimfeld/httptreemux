@@ -24,8 +24,12 @@ type IContextGroup interface {
 }
 
 func TestContextParams(t *testing.T) {
-	m := map[string]string{"id": "123"}
-	ctx := context.WithValue(context.Background(), paramsContextKey, m)
+	m := contextData{
+		params: map[string]string{"id": "123"},
+		route:  "",
+	}
+
+	ctx := context.WithValue(context.Background(), routeContextKey, m)
 
 	params := ContextParams(ctx)
 	if params == nil {
@@ -33,17 +37,40 @@ func TestContextParams(t *testing.T) {
 	}
 
 	if v := params["id"]; v != "123" {
-		t.Errorf("expected '%s', but got '%#v'", m["id"], params["id"])
+		t.Errorf("expected '%s', but got '%#v'", m.params["id"], params["id"])
 	}
 }
 
-func TestContextRoute(t *testing.T) {
-	p := "route/path"
+func TestContextData(t *testing.T) {
+	p := contextData{
+		route:  "route/path",
+		params: map[string]string{"id": "123"},
+	}
+
 	ctx := context.WithValue(context.Background(), routeContextKey, p)
 
-	pathValue := ContextRoute(ctx)
-	if pathValue != p {
+	ctxData := ContextData(ctx)
+	pathValue := ctxData.Route()
+	if pathValue != p.route {
 		t.Errorf("expected '%s', but got '%s'", p, pathValue)
+	}
+
+	params := ctxData.Params()
+	if v := params["id"]; v != "123" {
+		t.Errorf("expected '%s', but got '%#v'", p.params["id"], params["id"])
+	}
+}
+
+func TestContextDataWithEmptyParams(t *testing.T) {
+	p := contextData{
+		route:  "route/path",
+		params: nil,
+	}
+
+	ctx := context.WithValue(context.Background(), routeContextKey, p)
+	params := ContextData(ctx).Params()
+	if params == nil {
+		t.Errorf("ContextData.Params should never return nil")
 	}
 }
 
@@ -65,13 +92,20 @@ func testContextGroupMethods(t *testing.T, reqGen RequestCreator, headCanUseGet 
 			return func(w http.ResponseWriter, r *http.Request) {
 				result = method
 
+				// Test Legacy Accessor
 				var v string
 				v, ok := ContextParams(r.Context())["param"]
 				if hasParam && !ok {
-					t.Error("missing key 'param' in context")
+					t.Error("missing key 'param' in context from ContextParams")
 				}
 
-				routePath := ContextRoute(r.Context())
+				ctxData := ContextData(r.Context())
+				v, ok = ctxData.Params()["param"]
+				if hasParam && !ok {
+					t.Error("missing key 'param' in context from ContextData")
+				}
+
+				routePath := ctxData.Route()
 				if routePath != expectedRoutePath {
 					t.Errorf("Expected context to have route path '%s', saw %s", expectedRoutePath, routePath)
 				}
@@ -102,11 +136,11 @@ func testContextGroupMethods(t *testing.T, reqGen RequestCreator, headCanUseGet 
 		}
 
 		cg := rootGroup.NewGroup("/base").NewGroup("/user")
-		cg.GET("/:param", makeHandler("GET", cg.group.path + "/:param", true))
-		cg.POST("/:param", makeHandler("POST", cg.group.path + "/:param", true))
-		cg.PATCH("/PATCH", makeHandler("PATCH", cg.group.path + "/PATCH", false))
-		cg.PUT("/:param", makeHandler("PUT", cg.group.path + "/:param", true))
-		cg.Handler("DELETE", "/:param", http.HandlerFunc(makeHandler("DELETE", cg.group.path + "/:param", true)))
+		cg.GET("/:param", makeHandler("GET", cg.group.path+"/:param", true))
+		cg.POST("/:param", makeHandler("POST", cg.group.path+"/:param", true))
+		cg.PATCH("/PATCH", makeHandler("PATCH", cg.group.path+"/PATCH", false))
+		cg.PUT("/:param", makeHandler("PUT", cg.group.path+"/:param", true))
+		cg.Handler("DELETE", "/:param", http.HandlerFunc(makeHandler("DELETE", cg.group.path+"/:param", true)))
 
 		testMethod := func(method, expect string) {
 			result = ""
@@ -136,7 +170,7 @@ func testContextGroupMethods(t *testing.T, reqGen RequestCreator, headCanUseGet 
 			testMethod("HEAD", "")
 		}
 
-		cg.HEAD("/:param", makeHandler("HEAD", cg.group.path + "/:param", true))
+		cg.HEAD("/:param", makeHandler("HEAD", cg.group.path+"/:param", true))
 		testMethod("HEAD", "HEAD")
 	})
 }

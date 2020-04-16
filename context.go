@@ -60,10 +60,11 @@ func (cg *ContextGroup) NewGroup(path string) *ContextGroup {
 func (cg *ContextGroup) Handle(method, path string, handler http.HandlerFunc) {
 	fullPath := cg.group.path + path
 	cg.group.Handle(method, path, func(w http.ResponseWriter, r *http.Request, params map[string]string) {
-		r = r.WithContext(AddRouteToContext(r.Context(), fullPath))
-		if params != nil {
-			r = r.WithContext(AddParamsToContext(r.Context(), params))
+		routeData := contextData{
+			route:  fullPath,
+			params: params,
 		}
+		r = r.WithContext(AddRouteDataToContext(r.Context(), routeData))
 		handler(w, r)
 	})
 }
@@ -73,10 +74,11 @@ func (cg *ContextGroup) Handle(method, path string, handler http.HandlerFunc) {
 func (cg *ContextGroup) Handler(method, path string, handler http.Handler) {
 	fullPath := cg.group.path + path
 	cg.group.Handle(method, path, func(w http.ResponseWriter, r *http.Request, params map[string]string) {
-		r = r.WithContext(AddRouteToContext(r.Context(), fullPath))
-		if params != nil {
-			r = r.WithContext(AddParamsToContext(r.Context(), params))
+		routeData := contextData{
+			route:  fullPath,
+			params: params,
 		}
+		r = r.WithContext(AddRouteDataToContext(r.Context(), routeData))
 		handler.ServeHTTP(w, r)
 	})
 }
@@ -116,39 +118,61 @@ func (cg *ContextGroup) OPTIONS(path string, handler http.HandlerFunc) {
 	cg.Handle("OPTIONS", path, handler)
 }
 
-// ContextParams returns the params map associated with the given context if one exists. Otherwise, an empty map is returned.
-func ContextParams(ctx context.Context) map[string]string {
-	if p, ok := ctx.Value(paramsContextKey).(map[string]string); ok {
-		return p
+type contextData struct {
+	route  string
+	params map[string]string
+}
+
+func (cd contextData) Route() string {
+	return cd.route
+}
+
+func (cd contextData) Params() map[string]string {
+	if cd.params != nil {
+		return cd.params
 	}
 	return map[string]string{}
 }
 
-// ContextRoute returns the full route path associated with the given context, without wildcard expansion.
-func ContextRoute(ctx context.Context) string {
-	if p, ok := ctx.Value(routeContextKey).(string); ok {
+// ContextData is the information associated with
+type ContextRouteData interface {
+	Route() string
+	Params() map[string]string
+}
+
+// ContextParams returns the params map associated with the given context if one exists. Otherwise, an empty map is returned.
+func ContextParams(ctx context.Context) map[string]string {
+	if p, ok := ctx.Value(routeContextKey).(ContextRouteData); ok {
+		return p.Params()
+	}
+	return map[string]string{}
+}
+
+// ContextData returns the full route path associated with the given context, without wildcard expansion.
+func ContextData(ctx context.Context) ContextRouteData {
+	if p, ok := ctx.Value(routeContextKey).(ContextRouteData); ok {
 		return p
 	}
-	return ""
+	return nil
+}
+
+func AddRouteDataToContext(ctx context.Context, data ContextRouteData) context.Context {
+	return context.WithValue(ctx, routeContextKey, data)
 }
 
 // AddParamsToContext inserts a parameters map into a context using
-// the package's internal context key. Clients of this package should
-// really only use this for unit tests.
+// the package's internal context key. This function is deprecated.
+// Use AddRouteDataToContext instead.
 func AddParamsToContext(ctx context.Context, params map[string]string) context.Context {
-	return context.WithValue(ctx, paramsContextKey, params)
-}
-
-// AddRouteToContext inserts a route's path, into a context using
-// the package's internal context key. Clients of this package should
-// really only use this for unit tests.
-func AddRouteToContext(ctx context.Context, path string) context.Context {
-	return context.WithValue(ctx, routeContextKey, path)
+	data := contextData{
+		route:  "",
+		params: params,
+	}
+	return AddRouteDataToContext(ctx, data)
 }
 
 type contextKey int
 
 // paramsContextKey and routeContextKey are used to retrieve a path's params map and route
 // from a request's context.
-const paramsContextKey contextKey = 0
-const routeContextKey contextKey = 1
+const routeContextKey contextKey = 0
