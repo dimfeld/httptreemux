@@ -58,9 +58,10 @@ func (cg *ContextGroup) NewGroup(path string) *ContextGroup {
 // Handle allows handling HTTP requests via an http.HandlerFunc, as opposed to an httptreemux.HandlerFunc.
 // Any parameters from the request URL are stored in a map[string]string in the request's context.
 func (cg *ContextGroup) Handle(method, path string, handler http.HandlerFunc) {
+	fullPath := cg.group.path + path
 	cg.group.Handle(method, path, func(w http.ResponseWriter, r *http.Request, params map[string]string) {
 		if params != nil {
-			r = r.WithContext(AddParamsToContext(r.Context(), params))
+			r = r.WithContext(AddRouteToContext(AddParamsToContext(r.Context(), params), fullPath))
 		}
 		handler(w, r)
 	})
@@ -69,9 +70,10 @@ func (cg *ContextGroup) Handle(method, path string, handler http.HandlerFunc) {
 // Handler allows handling HTTP requests via an http.Handler interface, as opposed to an httptreemux.HandlerFunc.
 // Any parameters from the request URL are stored in a map[string]string in the request's context.
 func (cg *ContextGroup) Handler(method, path string, handler http.Handler) {
+	fullPath := cg.group.path + path
 	cg.group.Handle(method, path, func(w http.ResponseWriter, r *http.Request, params map[string]string) {
 		if params != nil {
-			r = r.WithContext(AddParamsToContext(r.Context(), params))
+			r = r.WithContext(AddRouteToContext(AddParamsToContext(r.Context(), params), fullPath))
 		}
 		handler.ServeHTTP(w, r)
 	})
@@ -120,6 +122,14 @@ func ContextParams(ctx context.Context) map[string]string {
 	return map[string]string{}
 }
 
+// ContextRoute returns the full route path associated with the given context, without wildcard expansion.
+func ContextRoute(ctx context.Context) string {
+	if p, ok := ctx.Value(routeContextKey).(string); ok {
+		return p
+	}
+	return ""
+}
+
 // AddParamsToContext inserts a parameters map into a context using
 // the package's internal context key. Clients of this package should
 // really only use this for unit tests.
@@ -127,7 +137,16 @@ func AddParamsToContext(ctx context.Context, params map[string]string) context.C
 	return context.WithValue(ctx, paramsContextKey, params)
 }
 
+// AddRouteToContext inserts a route's path, into a context using
+// the package's internal context key. Clients of this package should
+// really only use this for unit tests.
+func AddRouteToContext(ctx context.Context, path string) context.Context {
+	return context.WithValue(ctx, routeContextKey, path)
+}
+
 type contextKey int
 
-// paramsContextKey is used to retrieve a path's params map from a request's context.
+// paramsContextKey and routeContextKey are used to retrieve a path's params map and route
+// from a request's context.
 const paramsContextKey contextKey = 0
+const routeContextKey contextKey = 1

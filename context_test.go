@@ -36,6 +36,16 @@ func TestContextParams(t *testing.T) {
 	}
 }
 
+func TextContextRoute(t *testing.T) {
+	p := "route/path"
+	ctx := context.WithValue(context.Background(), routeContextKey, p)
+
+	pathValue := ContextRoute(ctx)
+	if pathValue != p {
+		t.Errorf("expected '%s', but got '%s'", p, pathValue)
+	}
+}
+
 func TestContextGroupMethods(t *testing.T) {
 	for _, scenario := range scenarios {
 		t.Log(scenario.description)
@@ -57,6 +67,12 @@ func testContextGroupMethods(t *testing.T, reqGen RequestCreator, headCanUseGet 
 			v, ok := ContextParams(r.Context())["param"]
 			if !ok {
 				t.Error("missing key 'param' in context")
+			}
+
+			routePath := ContextRoute(r.Context())
+			expectedRoutePath := "/base/user/:param"
+			if routePath != expectedRoutePath {
+				t.Errorf("Expected context to have route path '%s', saw %s", expectedRoutePath, routePath)
 			}
 
 			if headCanUseGet && (method == "GET" || v == "HEAD") {
@@ -90,7 +106,7 @@ func testContextGroupMethods(t *testing.T, reqGen RequestCreator, headCanUseGet 
 	cg.POST("/:param", makeHandler("POST"))
 	cg.PATCH("/:param", makeHandler("PATCH"))
 	cg.PUT("/:param", makeHandler("PUT"))
-	cg.DELETE("/:param", makeHandler("DELETE"))
+	cg.Handler("DELETE", "/:param", http.HandlerFunc(makeHandler("DELETE")))
 
 	testMethod := func(method, expect string) {
 		result = ""
