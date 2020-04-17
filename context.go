@@ -134,13 +134,15 @@ func (cd *contextData) Params() map[string]string {
 	return map[string]string{}
 }
 
-// ContextData is the information associated with
+// ContextRouteData is the information associated with the matched path.
+// Route() returns the matched route, without expanded wildcards.
+// Params() returns a map of the route's wildcards and their matched values.
 type ContextRouteData interface {
 	Route() string
 	Params() map[string]string
 }
 
-// ContextParams returns the params map associated with the given context if one exists. Otherwise, an empty map is returned.
+// ContextParams returns a map of the route's wildcards and their matched values.
 func ContextParams(ctx context.Context) map[string]string {
 	if cd := ContextData(ctx); cd != nil {
 		return cd.Params()
@@ -148,7 +150,7 @@ func ContextParams(ctx context.Context) map[string]string {
 	return map[string]string{}
 }
 
-// ContextRoute returns the matched route path associated with the given context if one exists
+// ContextRoute returns the matched route, without expanded wildcards.
 func ContextRoute(ctx context.Context) string {
 	if cd := ContextData(ctx); cd != nil {
 		return cd.Route()
@@ -156,7 +158,7 @@ func ContextRoute(ctx context.Context) string {
 	return ""
 }
 
-// ContextData returns the full route path associated with the given context, without wildcard expansion.
+// ContextData returns the ContextRouteData associated with the matched path
 func ContextData(ctx context.Context) ContextRouteData {
 	if p, ok := ctx.Value(contextDataKey).(ContextRouteData); ok {
 		return p
@@ -164,6 +166,7 @@ func ContextData(ctx context.Context) ContextRouteData {
 	return nil
 }
 
+// AddRouteDataToContext can be used for testing handlers, to insert route data into the request's `Context`.
 func AddRouteDataToContext(ctx context.Context, data ContextRouteData) context.Context {
 	return context.WithValue(ctx, contextDataKey, data)
 }
