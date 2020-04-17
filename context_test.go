@@ -24,12 +24,12 @@ type IContextGroup interface {
 }
 
 func TestContextParams(t *testing.T) {
-	m := contextData{
+	m := &contextData{
 		params: map[string]string{"id": "123"},
 		route:  "",
 	}
 
-	ctx := context.WithValue(context.Background(), routeContextKey, m)
+	ctx := context.WithValue(context.Background(), contextDataKey, m)
 
 	params := ContextParams(ctx)
 	if params == nil {
@@ -41,13 +41,52 @@ func TestContextParams(t *testing.T) {
 	}
 }
 
+func TestContextRoute(t *testing.T) {
+	tests := []struct{
+		name,
+		expectedRoute string
+	} {
+		{
+			name: "basic",
+			expectedRoute: "/base/path",
+		},
+		{
+			name: "params",
+			expectedRoute: "/base/path/:id/items/:itemid",
+		},
+		{
+			name: "catch-all",
+			expectedRoute: "/base/*path",
+		},
+		{
+			name: "empty",
+			expectedRoute: "",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			cd := &contextData{}
+			if len(test.expectedRoute) > 0 {
+				cd.route = test.expectedRoute
+			}
+			ctx := context.WithValue(context.Background(), contextDataKey, cd)
+
+			gotRoute := ContextRoute(ctx)
+
+			if test.expectedRoute != gotRoute {
+				t.Errorf("ContextRoute didn't return the desired route\nexpected %s\ngot: %s", test.expectedRoute, gotRoute)
+			}
+		})
+	}
+}
+
 func TestContextData(t *testing.T) {
-	p := contextData{
+	p := &contextData{
 		route:  "route/path",
 		params: map[string]string{"id": "123"},
 	}
 
-	ctx := context.WithValue(context.Background(), routeContextKey, p)
+	ctx := context.WithValue(context.Background(), contextDataKey, p)
 
 	ctxData := ContextData(ctx)
 	pathValue := ctxData.Route()
@@ -62,12 +101,12 @@ func TestContextData(t *testing.T) {
 }
 
 func TestContextDataWithEmptyParams(t *testing.T) {
-	p := contextData{
+	p := &contextData{
 		route:  "route/path",
 		params: nil,
 	}
 
-	ctx := context.WithValue(context.Background(), routeContextKey, p)
+	ctx := context.WithValue(context.Background(), contextDataKey, p)
 	params := ContextData(ctx).Params()
 	if params == nil {
 		t.Errorf("ContextData.Params should never return nil")
