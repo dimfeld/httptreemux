@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 )
 
@@ -361,4 +362,57 @@ func TestContextMuxSimple(t *testing.T) {
 	w = httptest.NewRecorder()
 	t.Log("Testing with DefaultContext")
 	router.ServeHTTP(w, r)
+}
+
+func TestAddDataToContext(t *testing.T) {
+	expectedRoute := "/expected/route"
+	expectedParams := map[string]string{
+		"test": "expected",
+	}
+
+	ctx := AddRouteDataToContext(context.Background(), &contextData{
+		route: expectedRoute,
+		params: expectedParams,
+	})
+
+	if gotData, ok := ctx.Value(contextDataKey).(*contextData); ok && gotData != nil {
+		if gotData.route != expectedRoute {
+			t.Errorf("Did not retrieve the desired route. Expected: %s; Got: %s", expectedRoute, gotData.route)
+		}
+		if !reflect.DeepEqual(expectedParams, gotData.params) {
+			t.Errorf("Did not retrieve the desired parameters. Expected: %#v; Got: %#v", expectedParams, gotData.params)
+		}
+	} else {
+		t.Error("failed to retrieve context data")
+	}
+}
+
+func TestAddParamsToContext(t *testing.T) {
+	expectedParams := map[string]string{
+		"test": "expected",
+	}
+
+	ctx := AddParamsToContext(context.Background(), expectedParams)
+
+	if gotData, ok := ctx.Value(contextDataKey).(*contextData); ok && gotData != nil {
+		if !reflect.DeepEqual(expectedParams, gotData.params) {
+			t.Errorf("Did not retrieve the desired parameters. Expected: %#v; Got: %#v", expectedParams, gotData.params)
+		}
+	} else {
+		t.Error("failed to retrieve context data")
+	}
+}
+
+func TestAddRouteToContext(t *testing.T) {
+	expectedRoute := "/expected/route"
+
+	ctx := AddRouteToContext(context.Background(), expectedRoute)
+
+	if gotData, ok := ctx.Value(contextDataKey).(*contextData); ok && gotData != nil {
+		if gotData.route != expectedRoute {
+			t.Errorf("Did not retrieve the desired route. Expected: %s; Got: %s", expectedRoute, gotData.route)
+		}
+	} else {
+		t.Error("failed to retrieve context data")
+	}
 }
