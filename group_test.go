@@ -165,3 +165,38 @@ func TestSetGetAfterHead(t *testing.T) {
 	testMethod("HEAD", "HEAD")
 	testMethod("GET", "GET")
 }
+
+func TestMiddleWareSequence(t *testing.T) {
+	handlerSequence := make([]string, 0, 2)
+
+	router := New()
+	router.UseHandlerFunc(func(handlerFunc http.HandlerFunc) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			handlerSequence = append(handlerSequence, "first")
+			handlerFunc(w, r)
+		}
+	})
+
+	router.UseHandlerFunc(func(handlerFunc http.HandlerFunc) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			handlerSequence = append(handlerSequence, "second")
+			handlerFunc(w, r)
+		}
+	})
+
+	router.GET("/abc", func(w http.ResponseWriter, r *http.Request, params map[string]string) {})
+
+	w := httptest.NewRecorder()
+	r, _ := http.NewRequest("GET", "/abc", nil)
+
+	router.ServeHTTP(w, r)
+
+	if len(handlerSequence) != 2 {
+		t.Errorf("expected %d middleware calls, got %d", 2, len(handlerSequence))
+		t.Fail()
+	}
+
+	if handlerSequence[0] != "first" || handlerSequence[1] != "second" {
+		t.Errorf("expected middlewares in sequence of addition, got %v", handlerSequence)
+	}
+}

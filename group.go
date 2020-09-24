@@ -68,6 +68,20 @@ func (g *Group) UseHandler(middleware func(http.Handler) http.Handler) {
 	})
 }
 
+// UseHandlerFunc is like Use but accepts http.HandlerFunc middleware.
+func (g *Group) UseHandlerFunc(middleware func(handlerFunc http.HandlerFunc) http.HandlerFunc) {
+	g.stack = append(g.stack, func(next HandlerFunc) HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request, params map[string]string) {
+			nextHandler := handlerWithParams{
+				handler: next,
+				params:  params,
+			}.ServeHTTP
+
+			middleware(nextHandler)(w, r)
+		}
+	})
+}
+
 // Path elements starting with : indicate a wildcard in the path. A wildcard will only match on a
 // single path segment. That is, the pattern `/post/:postid` will match on `/post/1` or `/post/1/`,
 // but not `/post/1/2`.
@@ -134,9 +148,7 @@ func (g *Group) Handle(method string, path string, handler HandlerFunc) {
 	g.mux.mutex.Lock()
 	defer g.mux.mutex.Unlock()
 
-	if len(g.stack) > 0 {
-		handler = handlerWithMiddlewares(handler, g.stack)
-	}
+	handler = handlerWithMiddlewares(handler, g.stack)
 
 	addSlash := false
 	addOne := func(thePath string) {
