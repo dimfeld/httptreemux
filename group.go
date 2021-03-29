@@ -16,6 +16,17 @@ func handlerWithMiddlewares(handler HandlerFunc, stack []MiddlewareFunc) Handler
 	return handler
 }
 
+func handlerWithContextData(next HandlerFunc, fullPath string) HandlerFunc {
+	return func(writer http.ResponseWriter, request *http.Request, m map[string]string) {
+		routeData := &contextData{
+			route:  fullPath,
+			params: m,
+		}
+		request = request.WithContext(AddRouteDataToContext(request.Context(), routeData))
+		next(writer, request, m)
+	}
+}
+
 type Group struct {
 	path  string
 	mux   *TreeMux
@@ -137,6 +148,10 @@ func (g *Group) Handle(method string, path string, handler HandlerFunc) {
 	if len(g.stack) > 0 {
 		handler = handlerWithMiddlewares(handler, g.stack)
 	}
+
+	//add the context data after adding all middleware
+	fullPath := g.path + path
+	handler = handlerWithContextData(handler, fullPath)
 
 	addSlash := false
 	addOne := func(thePath string) {

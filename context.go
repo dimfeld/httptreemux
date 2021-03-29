@@ -58,13 +58,7 @@ func (cg *ContextGroup) NewGroup(path string) *ContextGroup {
 // Handle allows handling HTTP requests via an http.HandlerFunc, as opposed to an httptreemux.HandlerFunc.
 // Any parameters from the request URL are stored in a map[string]string in the request's context.
 func (cg *ContextGroup) Handle(method, path string, handler http.HandlerFunc) {
-	fullPath := cg.group.path + path
 	cg.group.Handle(method, path, func(w http.ResponseWriter, r *http.Request, params map[string]string) {
-		routeData := &contextData{
-			route:  fullPath,
-			params: params,
-		}
-		r = r.WithContext(AddRouteDataToContext(r.Context(), routeData))
 		handler(w, r)
 	})
 }
@@ -72,13 +66,7 @@ func (cg *ContextGroup) Handle(method, path string, handler http.HandlerFunc) {
 // Handler allows handling HTTP requests via an http.Handler interface, as opposed to an httptreemux.HandlerFunc.
 // Any parameters from the request URL are stored in a map[string]string in the request's context.
 func (cg *ContextGroup) Handler(method, path string, handler http.Handler) {
-	fullPath := cg.group.path + path
 	cg.group.Handle(method, path, func(w http.ResponseWriter, r *http.Request, params map[string]string) {
-		routeData := &contextData{
-			route:  fullPath,
-			params: params,
-		}
-		r = r.WithContext(AddRouteDataToContext(r.Context(), routeData))
 		handler.ServeHTTP(w, r)
 	})
 }

@@ -3,6 +3,7 @@ package httptreemux
 import (
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 )
 
@@ -164,4 +165,48 @@ func TestSetGetAfterHead(t *testing.T) {
 
 	testMethod("HEAD", "HEAD")
 	testMethod("GET", "GET")
+}
+
+func TestContextDataWithMiddleware(t *testing.T) {
+	wantRoute := "/foo/:id/bar"
+	wantParams := map[string]string{
+		"id": "15",
+	}
+
+	validateRequestAndParams := func(request *http.Request, params map[string]string, location string) {
+		data := ContextData(request.Context())
+		if data == nil {
+			t.Fatalf("ContextData returned nil in %s", location)
+		}
+		if data.Route() != wantRoute {
+			t.Errorf("Unexpected route in %s.  Got %s", location, data.Route())
+		}
+		if !reflect.DeepEqual(data.Params(), wantParams) {
+			t.Errorf("Unexpected context params in %s. Got %+v", location, data.Params())
+		}
+		if !reflect.DeepEqual(params, wantParams) {
+			t.Errorf("Unexpected handler params in %s. Got %+v", location, params)
+		}
+	}
+
+	router := New()
+	router.Use(func(next HandlerFunc) HandlerFunc {
+		return func(writer http.ResponseWriter, request *http.Request, m map[string]string) {
+			validateRequestAndParams(request, m, "middleware")
+			next(writer, request, m)
+		}
+	})
+
+	router.GET(wantRoute, func(writer http.ResponseWriter, request *http.Request, m map[string]string) {
+		validateRequestAndParams(request, m, "handler")
+		writer.WriteHeader(http.StatusOK)
+	})
+
+	w := httptest.NewRecorder()
+	r, _ := http.NewRequest(http.MethodGet, "/foo/15/bar", nil)
+	router.ServeHTTP(w, r)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("unexpected status code.  got %d", w.Code)
+	}
 }
