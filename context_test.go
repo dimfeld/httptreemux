@@ -43,24 +43,24 @@ func TestContextParams(t *testing.T) {
 }
 
 func TestContextRoute(t *testing.T) {
-	tests := []struct{
+	tests := []struct {
 		name,
 		expectedRoute string
-	} {
+	}{
 		{
-			name: "basic",
+			name:          "basic",
 			expectedRoute: "/base/path",
 		},
 		{
-			name: "params",
+			name:          "params",
 			expectedRoute: "/base/path/:id/items/:itemid",
 		},
 		{
-			name: "catch-all",
+			name:          "catch-all",
 			expectedRoute: "/base/*path",
 		},
 		{
-			name: "empty",
+			name:          "empty",
 			expectedRoute: "",
 		},
 	}
@@ -140,6 +140,10 @@ func testContextGroupMethods(t *testing.T, reqGen RequestCreator, headCanUseGet 
 				}
 
 				ctxData := ContextData(r.Context())
+				if ctxData == nil {
+					t.Fatal("context did not contain ContextData")
+				}
+
 				v, ok = ctxData.Params()["param"]
 				if hasParam && !ok {
 					t.Error("missing key 'param' in context from ContextData")
@@ -371,7 +375,7 @@ func TestAddDataToContext(t *testing.T) {
 	}
 
 	ctx := AddRouteDataToContext(context.Background(), &contextData{
-		route: expectedRoute,
+		route:  expectedRoute,
 		params: expectedParams,
 	})
 
@@ -414,5 +418,51 @@ func TestAddRouteToContext(t *testing.T) {
 		}
 	} else {
 		t.Error("failed to retrieve context data")
+	}
+}
+
+func TestContextDataWithMiddleware(t *testing.T) {
+	wantRoute := "/foo/:id/bar"
+	wantParams := map[string]string{
+		"id": "15",
+	}
+
+	validateRequestAndParams := func(request *http.Request, params map[string]string, location string) {
+		data := ContextData(request.Context())
+		if data == nil {
+			t.Fatalf("ContextData returned nil in %s", location)
+		}
+		if data.Route() != wantRoute {
+			t.Errorf("Unexpected route in %s.  Got %s", location, data.Route())
+		}
+		if !reflect.DeepEqual(data.Params(), wantParams) {
+			t.Errorf("Unexpected context params in %s. Got %+v", location, data.Params())
+		}
+		if !reflect.DeepEqual(params, wantParams) {
+			t.Errorf("Unexpected handler params in %s. Got %+v", location, params)
+		}
+	}
+
+	router := NewContextMux()
+	router.Use(func(next HandlerFunc) HandlerFunc {
+		return func(writer http.ResponseWriter, request *http.Request, m map[string]string) {
+			t.Log("Testing Middleware")
+			validateRequestAndParams(request, m, "middleware")
+			next(writer, request, m)
+		}
+	})
+
+	router.GET(wantRoute, func(writer http.ResponseWriter, request *http.Request) {
+		t.Log("Testing handler")
+		validateRequestAndParams(request, ContextParams(request.Context()), "handler")
+		writer.WriteHeader(http.StatusOK)
+	})
+
+	w := httptest.NewRecorder()
+	r, _ := http.NewRequest(http.MethodGet, "/foo/15/bar", nil)
+	router.ServeHTTP(w, r)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("unexpected status code.  got %d", w.Code)
 	}
 }
