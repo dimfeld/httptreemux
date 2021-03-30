@@ -16,17 +16,6 @@ func handlerWithMiddlewares(handler HandlerFunc, stack []MiddlewareFunc) Handler
 	return handler
 }
 
-func handlerWithContextData(next HandlerFunc, fullPath string) HandlerFunc {
-	return func(writer http.ResponseWriter, request *http.Request, m map[string]string) {
-		routeData := &contextData{
-			route:  fullPath,
-			params: m,
-		}
-		request = request.WithContext(AddRouteDataToContext(request.Context(), routeData))
-		next(writer, request, m)
-	}
-}
-
 type Group struct {
 	path  string
 	mux   *TreeMux
@@ -149,10 +138,10 @@ func (g *Group) Handle(method string, path string, handler HandlerFunc) {
 		handler = handlerWithMiddlewares(handler, g.stack)
 	}
 
-	//add the context data after adding all middleware
-	fullPath := g.path + path
-	handler = handlerWithContextData(handler, fullPath)
+	g.addFullStackHandler(method, path, handler)
+}
 
+func (g *Group) addFullStackHandler(method string, path string, handler HandlerFunc) {
 	addSlash := false
 	addOne := func(thePath string) {
 		node := g.mux.root.addPath(thePath[1:], nil, false)
@@ -190,6 +179,7 @@ func (g *Group) Handle(method string, path string, handler HandlerFunc) {
 	}
 
 	addOne(path)
+
 }
 
 // Syntactic sugar for Handle("GET", path, handler)
