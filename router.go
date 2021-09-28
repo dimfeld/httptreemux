@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 // The params argument contains the parameters parsed from wildcards and catch-alls in the URL.
@@ -117,6 +118,9 @@ func (t *TreeMux) lookup(w http.ResponseWriter, r *http.Request) (result LookupR
 		if rawQueryLen != 0 || path[pathLen-1] == '?' {
 			// Remove any query string and the ?.
 			path = path[:pathLen-rawQueryLen-1]
+			if t.CaseInsensitive {
+				path = strings.ToLower(path)
+			}
 			pathLen = len(path)
 		}
 	} else {
