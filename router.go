@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"strings"
 )
 
 // The params argument contains the parameters parsed from wildcards and catch-alls in the URL.
@@ -110,13 +109,7 @@ func redirect(w http.ResponseWriter, r *http.Request, newPath string, statusCode
 func (t *TreeMux) lookup(w http.ResponseWriter, r *http.Request) (result LookupResult, found bool) {
 	result.StatusCode = http.StatusNotFound
 	path := r.RequestURI
-	if t.CaseInsensitive {
-		path = strings.ToLower(path)
-	}
 	unescapedPath := r.URL.Path
-	if t.CaseInsensitive {
-		unescapedPath = strings.ToLower(unescapedPath)
-	}
 	pathLen := len(path)
 	if pathLen > 0 && t.PathSource == RequestURI {
 		rawQueryLen := len(r.URL.RawQuery)
