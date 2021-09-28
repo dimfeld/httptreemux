@@ -110,7 +110,13 @@ func redirect(w http.ResponseWriter, r *http.Request, newPath string, statusCode
 func (t *TreeMux) lookup(w http.ResponseWriter, r *http.Request) (result LookupResult, found bool) {
 	result.StatusCode = http.StatusNotFound
 	path := r.RequestURI
+	if t.CaseInsensitive {
+		path = strings.ToLower(path)
+	}
 	unescapedPath := r.URL.Path
+	if t.CaseInsensitive {
+		unescapedPath = strings.ToLower(unescapedPath)
+	}
 	pathLen := len(path)
 	if pathLen > 0 && t.PathSource == RequestURI {
 		rawQueryLen := len(r.URL.RawQuery)
@@ -118,9 +124,6 @@ func (t *TreeMux) lookup(w http.ResponseWriter, r *http.Request) (result LookupR
 		if rawQueryLen != 0 || path[pathLen-1] == '?' {
 			// Remove any query string and the ?.
 			path = path[:pathLen-rawQueryLen-1]
-			if t.CaseInsensitive {
-				path = strings.ToLower(path)
-			}
 			pathLen = len(path)
 		}
 	} else {
@@ -136,13 +139,13 @@ func (t *TreeMux) lookup(w http.ResponseWriter, r *http.Request) (result LookupR
 		unescapedPath = unescapedPath[:len(unescapedPath)-1]
 	}
 
-	n, handler, params := t.root.search(r.Method, path[1:])
+	n, handler, params := t.root.search(r.Method, path[1:], t.CaseInsensitive)
 	if n == nil {
 		if t.RedirectCleanPath {
 			// Path was not found. Try cleaning it up and search again.
 			// TODO Test this
 			cleanPath := Clean(unescapedPath)
-			n, handler, params = t.root.search(r.Method, cleanPath[1:])
+			n, handler, params = t.root.search(r.Method, cleanPath[1:], t.CaseInsensitive)
 			if n == nil {
 				// Still nothing found.
 				return

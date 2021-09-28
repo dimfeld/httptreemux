@@ -152,7 +152,7 @@ func testMethods(t *testing.T, newRequest RequestCreator, headCanUseGet bool, us
 
 func TestCaseInsensitiveRouting(t *testing.T) {
 	router := New()
-	router.GET("/my-path", simpleHandler)
+	router.GET("/MY-path", simpleHandler)
 
 	w := httptest.NewRecorder()
 	r, _ := newRequest("GET", "/MY-PATH", nil)
