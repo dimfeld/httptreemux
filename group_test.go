@@ -53,6 +53,28 @@ func TestSubGroupEmptyMapping(t *testing.T) {
 	}
 }
 
+func TestGroupCaseInsensitiveRouting(t *testing.T) {
+	r := New()
+	r.NewGroup("/MY-path").GET("", func(w http.ResponseWriter, _ *http.Request, _ map[string]string) {
+		w.WriteHeader(200)
+	})
+
+	req, _ := http.NewRequest("GET", "/MY-PATH", nil)
+	recorder := httptest.NewRecorder()
+	r.ServeHTTP(recorder, req)
+	if recorder.Code != http.StatusNotFound {
+		t.Errorf("expected 404 response for case-insensitive request. Received: %d", recorder.Code)
+	}
+
+	// Now try with case-insensitive routing
+	r.CaseInsensitive = true
+	recorder = httptest.NewRecorder()
+	r.ServeHTTP(recorder, req)
+	if recorder.Code != http.StatusOK {
+		t.Errorf("expected 200 response for case-insensitive request. Received: %d", recorder.Code)
+	}
+}
+
 func TestGroupMethods(t *testing.T) {
 	for _, scenario := range scenarios {
 		t.Log(scenario.description)
