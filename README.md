@@ -191,14 +191,15 @@ These are the values accepted for RedirectBehavior. You may also add these value
 
 ### Case Insensitive Routing
 
-You can optionally allow case insensitive routing by setting the _CaseInsensitive_ property on the router to true. 
-This allows you to make all routes case insensitive. For example:
+You can optionally allow case-insensitive routing by setting the _CaseInsensitive_ property on the router to true. 
+This allows you to make all routes case-insensitive. For example:
 ```go
 router := httptreemux.New()
 router.CaseInsensitive
 router.GET("/My-RoUtE", pageHandler)
 ```
-In this example, performing a GET request to /my-route will match the route and execute the _pageHandler_ functionality.
+In this example, performing a GET request to /my-route will match the route and execute the _pageHandler_ functionality. 
+It's important to note that when using case-insensitive routing, the CaseInsensitive property must be set before routes are defined or there may be unexpected side effects. 
 
 #### Rationale/Usage
 On a POST request, most browsers that receive a 301 will submit a GET request to the redirected URL, meaning that any data will likely be lost. If you want to handle and avoid this behavior, you may use Redirect307, which causes most browsers to resubmit the request using the original method and request body.
