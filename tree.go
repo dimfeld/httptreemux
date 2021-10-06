@@ -231,13 +231,10 @@ func (n *node) splitCommonPrefix(existingNodeIndex int, path string) (*node, int
 	return newNode, i
 }
 
-func (n *node) search(method, path string, caseInsensitive bool) (found *node, handler HandlerFunc, params []string) {
+func (n *node) search(method, path string) (found *node, handler HandlerFunc, params []string) {
 	// if test != nil {
 	// 	test.Logf("Searching for %s in %s", path, n.dumpTree("", ""))
 	// }
-	if caseInsensitive {
-		path = strings.ToLower(path)
-	}
 	pathLen := len(path)
 	if pathLen == 0 {
 		if len(n.leafHandler) == 0 {
@@ -250,18 +247,12 @@ func (n *node) search(method, path string, caseInsensitive bool) (found *node, h
 	// First see if this matches a static token.
 	firstChar := path[0]
 	for i, staticIndex := range n.staticIndices {
-		if caseInsensitive {
-			staticIndex = strings.ToLower(string(staticIndex))[0]
-		}
 		if staticIndex == firstChar {
 			child := n.staticChild[i]
 			childPathLen := len(child.path)
-			if caseInsensitive {
-				child.path = strings.ToLower(child.path)
-			}
 			if pathLen >= childPathLen && child.path == path[:childPathLen] {
 				nextPath := path[childPathLen:]
-				found, handler, params = child.search(method, nextPath, caseInsensitive)
+				found, handler, params = child.search(method, nextPath)
 			}
 			break
 		}
@@ -284,7 +275,7 @@ func (n *node) search(method, path string, caseInsensitive bool) (found *node, h
 		nextToken := path[nextSlash:]
 
 		if len(thisToken) > 0 { // Don't match on empty tokens.
-			wcNode, wcHandler, wcParams := n.wildcardChild.search(method, nextToken, caseInsensitive)
+			wcNode, wcHandler, wcParams := n.wildcardChild.search(method, nextToken)
 			if wcHandler != nil || (found == nil && wcNode != nil) {
 				unescaped, err := unescape(thisToken)
 				if err != nil {

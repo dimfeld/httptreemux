@@ -152,18 +152,13 @@ func testMethods(t *testing.T, newRequest RequestCreator, headCanUseGet bool, us
 
 func TestCaseInsensitiveRouting(t *testing.T) {
 	router := New()
+	// create case-insensitive route
+	router.CaseInsensitive = true
 	router.GET("/MY-path", simpleHandler)
 
 	w := httptest.NewRecorder()
 	r, _ := newRequest("GET", "/MY-PATH", nil)
 	router.ServeHTTP(w, r)
-
-	if w.Code != http.StatusNotFound {
-		t.Errorf("expected 404 response for case-insensitive request. Received: %d", w.Code)
-	}
-
-	// Now try with case-insensitive routing
-	router.CaseInsensitive = true
 
 	w = httptest.NewRecorder()
 	router.ServeHTTP(w, r)

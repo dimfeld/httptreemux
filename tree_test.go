@@ -27,7 +27,7 @@ func testPath(t *testing.T, tree *node, path string, expectPath string, expected
 	}
 
 	t.Log("Testing", path)
-	n, foundHandler, paramList := tree.search("GET", path[1:], false)
+	n, foundHandler, paramList := tree.search("GET", path[1:])
 	if expectPath != "" && n == nil {
 		t.Errorf("No match for %s, expected %s", path, expectPath)
 		return
@@ -317,7 +317,7 @@ func BenchmarkTreeNullRequest(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		tree.search("GET", "", false)
+		tree.search("GET", "")
 	}
 }
 
@@ -333,7 +333,7 @@ func BenchmarkTreeOneStatic(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		tree.search("GET", "abc", false)
+		tree.search("GET", "abc")
 	}
 }
 
@@ -349,7 +349,7 @@ func BenchmarkTreeOneParam(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		tree.search("GET", "abc", false)
+		tree.search("GET", "abc")
 	}
 }
 
@@ -365,6 +365,6 @@ func BenchmarkTreeLongParams(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		tree.search("GET", "abcdefghijklmnop/aaaabbbbccccddddeeeeffffgggg/hijkl", false)
+		tree.search("GET", "abcdefghijklmnop/aaaabbbbccccddddeeeeffffgggg/hijkl")
 	}
 }

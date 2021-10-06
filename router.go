@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 // The params argument contains the parameters parsed from wildcards and catch-alls in the URL.
@@ -125,6 +126,10 @@ func (t *TreeMux) lookup(w http.ResponseWriter, r *http.Request) (result LookupR
 		path = r.URL.Path
 		pathLen = len(path)
 	}
+	if t.CaseInsensitive {
+		path = strings.ToLower(path)
+		unescapedPath = strings.ToLower(unescapedPath)
+	}
 
 	trailingSlash := path[pathLen-1] == '/' && pathLen > 1
 	if trailingSlash && t.RedirectTrailingSlash {
@@ -132,13 +137,13 @@ func (t *TreeMux) lookup(w http.ResponseWriter, r *http.Request) (result LookupR
 		unescapedPath = unescapedPath[:len(unescapedPath)-1]
 	}
 
-	n, handler, params := t.root.search(r.Method, path[1:], t.CaseInsensitive)
+	n, handler, params := t.root.search(r.Method, path[1:])
 	if n == nil {
 		if t.RedirectCleanPath {
 			// Path was not found. Try cleaning it up and search again.
 			// TODO Test this
 			cleanPath := Clean(unescapedPath)
-			n, handler, params = t.root.search(r.Method, cleanPath[1:], t.CaseInsensitive)
+			n, handler, params = t.root.search(r.Method, cleanPath[1:])
 			if n == nil {
 				// Still nothing found.
 				return
