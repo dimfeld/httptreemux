@@ -3,7 +3,7 @@ httptreemux  [![Build Status](https://travis-ci.org/dimfeld/httptreemux.png?bran
 
 High-speed, flexible, tree-based HTTP router for Go.
 
-This is inspired by [Julien Schmidt's httprouter](https://www.github.com/julienschmidt/httprouter), in that it uses a patricia tree, but the implementation is rather different. Specifically, the routing rules are relaxed so that a single path segment may be a wildcard in one route and a static token in another. This gives a nice combination of high performance with a lot of convenience in designing the routing patterns. In [benchmarks](https://github.com/julienschmidt/go-http-routing-benchmark), httptreemux is close to, but slightly slower than, httprouter.
+This is inspired by [Julien Schmidt's httprouter](https://www.github.com/julienschmidt/httprouter), in that it uses a patricia tree, but the implementation is rather different. Specifically, the routing rules are relaxed so that a single path segment may be a wildcard in one route and a static token in another. It also supports regex routes which will be checked after static and wildcard routes. This gives a nice combination of high performance with a lot of convenience in designing the routing patterns. In [benchmarks](https://github.com/julienschmidt/go-http-routing-benchmark), httptreemux is close to, but slightly slower than, httprouter.
 
 Release notes may be found using the [Github releases tab](https://github.com/dimfeld/httptreemux/releases). Version numbers are compatible with the [Semantic Versioning 2.0.0](http://semver.org/) convention, and a new release is made after every change to the code.
 
@@ -15,7 +15,7 @@ When using Go Modules, import this repository with `import "github.com/dimfeld/h
 There are a lot of good routers out there. But looking at the ones that were really lightweight, I couldn't quite get something that fit with the route patterns I wanted. The code itself is simple enough, so I spent an evening writing this.
 
 ## Handler
-The handler is a simple function with the prototype `func(w http.ResponseWriter, r *http.Request, params map[string]string)`. The params argument contains the parameters parsed from wildcards and catch-alls in the URL, as described below. This type is aliased as httptreemux.HandlerFunc.
+The handler is a simple function with the prototype `func(w http.ResponseWriter, r *http.Request, params map[string]string)`. The params argument contains the parameters parsed from wildcards, catch-all and regexp named capturing in the URL, as described below. This type is aliased as httptreemux.HandlerFunc.
 
 ### Using http.HandlerFunc
 Due to the inclusion of the [context](https://godoc.org/context) package as of Go 1.7, `httptreemux` now supports handlers of type [http.HandlerFunc](https://godoc.org/net/http#HandlerFunc). There are two ways to enable this support.
@@ -81,7 +81,7 @@ http.ListenAndServe(":8080", router)
 
 
 ## Routing Rules
-The syntax here is also modeled after httprouter. Each variable in a path may match on one segment only, except for an optional catch-all variable at the end of the URL.
+The syntax here is also modeled after httprouter. Each variable in a path may match on one segment only, except for an optional catch-all variable or a regular expression at the end of the URL.
 
 Some examples of valid URL patterns are:
 * `/post/all`
@@ -89,6 +89,7 @@ Some examples of valid URL patterns are:
 * `/post/:postid/page/:page`
 * `/post/:postid/:page`
 * `/images/*path`
+* `/images/~(?P<category>\w+)-(?P<name>.+)`
 * `/favicon.ico`
 * `/:year/:month/`
 * `/:year/:month/:post`
@@ -100,15 +101,19 @@ Path elements starting with `:` indicate a wildcard in the path. A wildcard will
 
 A path element starting with `*` is a catch-all, whose value will be a string containing all text in the URL matched by the wildcards. For example, with a pattern of `/images/*path` and a requested URL `images/abc/def`, path would contain `abc/def`. A catch-all path will not match an empty string, so in this example a separate route would need to be installed if you also want to match `/images/`.
 
-#### Using : and * in routing patterns
+A path element starting with `~` is a regexp route, all text after `~` is considered the regular expression. Regexp routes are checked only neither of static, wildcards or catch-all routes match. Multiple regexp are allowed to be registered with same prefix, they will be checked in their registering order. Named capturing values will be passed to handler as params.
 
-The characters `:` and `*` can be used at the beginning of a path segment by escaping them with a backslash. A double backslash at the beginning of a segment is interpreted as a single backslash. These escapes are only checked at the very beginning of a path segment; they are not necessary or processed elsewhere in a token.
+#### Using : * and ~ in routing patterns
+
+The characters `:`, `*` and `~` can be used at the beginning of a path segment by escaping them with a backslash. A double backslash at the beginning of a segment is interpreted as a single backslash. These escapes are only checked at the very beginning of a path segment; they are not necessary or processed elsewhere in a token.
 
 ```go
-router.GET("/foo/\\*starToken", handler) // matches /foo/*starToken
+router.GET("/foo/\\*starToken", handler)     // matches /foo/*starToken
 router.GET("/foo/star*inTheMiddle", handler) // matches /foo/star*inTheMiddle
 router.GET("/foo/starBackslash\\*", handler) // matches /foo/starBackslash\*
-router.GET("/foo/\\\\*backslashWithStar") // matches /foo/\*backslashWithStar
+router.GET("/foo/\\\\*backslashWithStar")    // matches /foo/\*backslashWithStar
+router.GET("/foo/\\~tildeToken", handler)    // matches /foo/~tildeToken
+router.GET("/foo/tilde~inMiddle", handler)   // matches /foo/tilde~inMiddle
 ```
 
 ### Routing Groups

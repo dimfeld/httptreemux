@@ -2,6 +2,7 @@ package httptreemux
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 )
 
@@ -20,10 +21,14 @@ type node struct {
 	// If none of the above match, then we use the catch-all, if applicable.
 	catchAllChild *node
 
+	regexChild []*node
+	regExpr    *regexp.Regexp
+
 	// Data for the node is below.
 
 	addSlash   bool
 	isCatchAll bool
+	isRegex    bool
 	// If true, the head handler was set implicitly, so let it also be set explicitly.
 	implicitHead bool
 	// If this node is the end of the URL, then call the handler, if applicable.
@@ -125,6 +130,19 @@ func (n *node) addPath(path string, wildcards []string, inStaticToken bool) *nod
 		n.catchAllChild.leafWildcardNames = wildcards
 
 		return n.catchAllChild
+
+	} else if c == '~' && !inStaticToken {
+		thisToken = thisToken[1:]
+		for _, child := range n.regexChild {
+			if path[1:] == child.path {
+				return child
+			}
+		}
+		re := regexp.MustCompile(path[1:])
+		child := &node{path: path[1:], isRegex: true, regExpr: re}
+		n.regexChild = append(n.regexChild, child)
+		return child
+
 	} else if c == ':' && !inStaticToken {
 		// Token starts with a :
 		thisToken = thisToken[1:]
@@ -148,7 +166,7 @@ func (n *node) addPath(path string, wildcards []string, inStaticToken bool) *nod
 
 		unescaped := false
 		if len(thisToken) >= 2 && !inStaticToken {
-			if thisToken[0] == '\\' && (thisToken[1] == '*' || thisToken[1] == ':' || thisToken[1] == '\\') {
+			if thisToken[0] == '\\' && (thisToken[1] == '*' || thisToken[1] == ':' || thisToken[1] == '~' || thisToken[1] == '\\') {
 				// The token starts with a character escaped by a backslash. Drop the backslash.
 				c = thisToken[1]
 				thisToken = thisToken[1:]
@@ -317,10 +335,39 @@ func (n *node) search(method, path string) (found *node, handler HandlerFunc, pa
 
 			return catchAllChild, handler, []string{unescaped}
 		}
+	}
 
+	if len(n.regexChild) > 0 {
+		// Test regex routes in their registering order.
+		child, handler, params := n.searchRegexChildren(method, path)
+		if child != nil {
+			return child, handler, params
+		}
 	}
 
 	return found, handler, params
+}
+
+func (n *node) searchRegexChildren(method, path string) (found *node, handler HandlerFunc, params []string) {
+	for _, child := range n.regexChild {
+		re := child.regExpr
+		match := re.FindStringSubmatch(path)
+		if len(match) == 0 {
+			continue
+		}
+		handler = child.leafHandler[method]
+		if handler != nil {
+			for i, name := range re.SubexpNames() {
+				if i != 0 && name != "" {
+					params = append(params, name+"="+match[i])
+				}
+			}
+			return child, handler, params
+		}
+
+		// Else no handler is registered for this method, ignore it.
+	}
+	return nil, nil, nil
 }
 
 func (n *node) dumpTree(prefix, nodeType string) string {

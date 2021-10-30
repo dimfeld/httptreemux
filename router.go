@@ -192,16 +192,24 @@ func (t *TreeMux) lookup(w http.ResponseWriter, r *http.Request) (result LookupR
 
 	var paramMap map[string]string
 	if len(params) != 0 {
-		if len(params) != len(n.leafWildcardNames) {
-			// Need better behavior here. Should this be a panic?
-			panic(fmt.Sprintf("httptreemux parameter list length mismatch: %v, %v",
-				params, n.leafWildcardNames))
-		}
+		if n.isRegex {
+			paramMap = make(map[string]string)
+			for _, param := range params {
+				kv := strings.SplitN(param, "=", 2)
+				paramMap[kv[0]] = kv[1]
+			}
+		} else {
+			if len(params) != len(n.leafWildcardNames) {
+				// Need better behavior here. Should this be a panic?
+				panic(fmt.Sprintf("httptreemux parameter list length mismatch: %v, %v",
+					params, n.leafWildcardNames))
+			}
 
-		paramMap = make(map[string]string)
-		numParams := len(params)
-		for index := 0; index < numParams; index++ {
-			paramMap[n.leafWildcardNames[numParams-index-1]] = params[index]
+			paramMap = make(map[string]string)
+			numParams := len(params)
+			for index := 0; index < numParams; index++ {
+				paramMap[n.leafWildcardNames[numParams-index-1]] = params[index]
+			}
 		}
 	}
 
