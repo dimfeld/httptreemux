@@ -383,5 +383,8 @@ func (n *node) dumpTree(prefix, nodeType string) string {
 	if n.catchAllChild != nil {
 		line += n.catchAllChild.dumpTree(prefix, "*")
 	}
+	for _, child := range n.regexChild {
+		line += child.dumpTree(prefix, "~")
+	}
 	return line
 }

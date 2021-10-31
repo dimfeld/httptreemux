@@ -15,7 +15,7 @@ When using Go Modules, import this repository with `import "github.com/dimfeld/h
 There are a lot of good routers out there. But looking at the ones that were really lightweight, I couldn't quite get something that fit with the route patterns I wanted. The code itself is simple enough, so I spent an evening writing this.
 
 ## Handler
-The handler is a simple function with the prototype `func(w http.ResponseWriter, r *http.Request, params map[string]string)`. The params argument contains the parameters parsed from wildcards, catch-all and regexp named capturing in the URL, as described below. This type is aliased as httptreemux.HandlerFunc.
+The handler is a simple function with the prototype `func(w http.ResponseWriter, r *http.Request, params map[string]string)`. The params argument contains the parameters parsed from wildcards, catch-all and regexp named capturing groups in the URL, as described below. This type is aliased as httptreemux.HandlerFunc.
 
 ### Using http.HandlerFunc
 Due to the inclusion of the [context](https://godoc.org/context) package as of Go 1.7, `httptreemux` now supports handlers of type [http.HandlerFunc](https://godoc.org/net/http#HandlerFunc). There are two ways to enable this support.
@@ -101,7 +101,7 @@ Path elements starting with `:` indicate a wildcard in the path. A wildcard will
 
 A path element starting with `*` is a catch-all, whose value will be a string containing all text in the URL matched by the wildcards. For example, with a pattern of `/images/*path` and a requested URL `images/abc/def`, path would contain `abc/def`. A catch-all path will not match an empty string, so in this example a separate route would need to be installed if you also want to match `/images/`.
 
-A path element starting with `~` is a regexp route, all text after `~` is considered the regular expression. Regexp routes are checked only neither of static, wildcards or catch-all routes match. Multiple regexp are allowed to be registered with same prefix, they will be checked in their registering order. Named capturing values will be passed to handler as params.
+A path element starting with `~` is a regexp route, all text after `~` is considered the regular expression. Regexp routes are checked only neither of static, wildcards or catch-all routes match. Multiple regexp are allowed to be registered with same prefix, they will be checked in their registering order. Named capturing groups will be passed to handler as params.
 
 #### Using : * and ~ in routing patterns
 
