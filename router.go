@@ -194,9 +194,10 @@ func (t *TreeMux) lookup(w http.ResponseWriter, r *http.Request) (result LookupR
 	if len(params) != 0 {
 		if n.isRegex {
 			paramMap = make(map[string]string)
-			for _, param := range params {
-				kv := strings.SplitN(param, "=", 2)
-				paramMap[kv[0]] = kv[1]
+			for i, name := range n.regExpr.SubexpNames() {
+				if i > 0 && name != "" {
+					paramMap[name] = params[i]
+				}
 			}
 		} else {
 			if len(params) != len(n.leafWildcardNames) {

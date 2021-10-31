@@ -149,7 +149,6 @@ func testMethods(t *testing.T, newRequest RequestCreator, headCanUseGet bool, us
 	testMethod("HEAD", "HEAD")
 }
 
-
 func TestCaseInsensitiveRouting(t *testing.T) {
 	router := New()
 	// create case-insensitive route
@@ -1028,6 +1027,7 @@ func TestLookup(t *testing.T) {
 	router.POST("/user/dimfeld", simpleHandler)
 	router.GET("/abc/*", simpleHandler)
 	router.POST("/abc/*", simpleHandler)
+	router.GET(`/smith/~^(\w+)`, simpleHandler)
 
 	var tryLookup = func(method, path string, expectFound bool, expectCode int) {
 		r, _ := newRequest(method, path, nil)
@@ -1056,6 +1056,10 @@ func TestLookup(t *testing.T) {
 	tryLookup("POST", "/user/dimfeld/", true, http.StatusMovedPermanently)
 	tryLookup("PATCH", "/user/dimfeld", false, http.StatusMethodNotAllowed)
 	tryLookup("GET", "/abc/def/ghi", true, http.StatusOK)
+
+	tryLookup("GET", "/smith/something", true, http.StatusOK)
+	tryLookup("POST", "/smith/something", false, http.StatusNotFound)
+	tryLookup("GET", "/smith/***something", false, http.StatusNotFound)
 
 	router.RedirectBehavior = Redirect307
 	tryLookup("POST", "/user/dimfeld/", true, http.StatusTemporaryRedirect)

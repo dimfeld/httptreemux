@@ -357,11 +357,7 @@ func (n *node) searchRegexChildren(method, path string) (found *node, handler Ha
 		}
 		handler = child.leafHandler[method]
 		if handler != nil {
-			for i, name := range re.SubexpNames() {
-				if i != 0 && name != "" {
-					params = append(params, name+"="+match[i])
-				}
-			}
+			params = match
 			return child, handler, params
 		}
 
