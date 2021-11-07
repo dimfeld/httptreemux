@@ -88,8 +88,8 @@ Some examples of valid URL patterns are:
 * `/post/:postid`
 * `/post/:postid/page/:page`
 * `/post/:postid/:page`
+* `/images/~^(?P<category>\w+)-(?P<name>.+)$`
 * `/images/*path`
-* `/images/~(?P<category>\w+)-(?P<name>.+)`
 * `/favicon.ico`
 * `/:year/:month/`
 * `/:year/:month/:post`
@@ -99,9 +99,9 @@ Note that all of the above URL patterns may exist concurrently in the router.
 
 Path elements starting with `:` indicate a wildcard in the path. A wildcard will only match on a single path segment. That is, the pattern `/post/:postid` will match on `/post/1` or `/post/1/`, but not `/post/1/2`.
 
-A path element starting with `*` is a catch-all, whose value will be a string containing all text in the URL matched by the wildcards. For example, with a pattern of `/images/*path` and a requested URL `images/abc/def`, path would contain `abc/def`. A catch-all path will not match an empty string, so in this example a separate route would need to be installed if you also want to match `/images/`.
+A path element starting with `~` is a regexp route, all text after `~` is considered the regular expression. Regexp routes are checked after static and wildcards routes. Multiple regexp are allowed to be registered with same prefix, they will be checked in their registering order. Named capturing groups will be passed to handler as params.
 
-A path element starting with `~` is a regexp route, all text after `~` is considered the regular expression. Regexp routes are checked only neither of static, wildcards or catch-all routes match. Multiple regexp are allowed to be registered with same prefix, they will be checked in their registering order. Named capturing groups will be passed to handler as params.
+A path element starting with `*` is a catch-all, whose value will be a string containing all text in the URL matched by the wildcards. For example, with a pattern of `/images/*path` and a requested URL `images/abc/def`, path would contain `abc/def`. A catch-all path will not match an empty string, so in this example a separate route would need to be installed if you also want to match `/images/`.
 
 #### Using : * and ~ in routing patterns
 
@@ -134,7 +134,8 @@ The priority rules in the router are simple.
 
 1. Static path segments take the highest priority. If a segment and its subtree are able to match the URL, that match is returned.
 2. Wildcards take second priority. For a particular wildcard to match, that wildcard and its subtree must match the URL.
-3. Finally, a catch-all rule will match when the earlier path segments have matched, and none of the static or wildcard conditions have matched. Catch-all rules must be at the end of a pattern.
+3. Regexp routes are checked after static and wildcards routes. Multiple regexp routes under a same prefix are checked in their registering order, if a regexp route matches the URL, the match is returned.
+4. Finally, a catch-all rule will match when the earlier path segments have matched, and none of the static or wildcard conditions have matched. Catch-all rules must be at the end of a pattern.
 
 So with the following patterns adapted from [simpleblog](https://www.github.com/dimfeld/simpleblog), we'll see certain matches:
 ```go
@@ -142,6 +143,7 @@ router = httptreemux.New()
 router.GET("/:page", pageHandler)
 router.GET("/:year/:month/:post", postHandler)
 router.GET("/:year/:month", archiveHandler)
+router.GET(`/images/~^(?P<category>\w+)-(?P<name>.+)$`)
 router.GET("/images/*path", staticHandler)
 router.GET("/favicon.ico", staticHandler)
 ```
@@ -151,6 +153,7 @@ router.GET("/favicon.ico", staticHandler)
 - `/abc` will match `/:page`
 - `/2014/05` will match `/:year/:month`
 - `/2014/05/really-great-blog-post` will match `/:year/:month/:post`
+- `/images/cate1-Img1.jpg` will match `/images/~^(?P<category>\w+)-(?P<name>.+)$`, the params will be `category=cate1` and `name=Img1.jpg`.
 - `/images/CoolImage.gif` will match `/images/*path`
 - `/images/2014/05/MayImage.jpg` will also match `/images/*path`, with all the text after `/images` stored in the variable path.
 - `/favicon.ico` will match `/favicon.ico`

@@ -320,6 +320,14 @@ func (n *node) search(method, path string) (found *node, handler HandlerFunc, pa
 		}
 	}
 
+	if len(n.regexChild) > 0 {
+		// Test regex routes in their registering order.
+		child, handler, params := n.searchRegexChild(method, path)
+		if child != nil {
+			return child, handler, params
+		}
+	}
+
 	catchAllChild := n.catchAllChild
 	if catchAllChild != nil {
 		// Hit the catchall, so just assign the whole remaining path if it
@@ -337,18 +345,10 @@ func (n *node) search(method, path string) (found *node, handler HandlerFunc, pa
 		}
 	}
 
-	if len(n.regexChild) > 0 {
-		// Test regex routes in their registering order.
-		child, handler, params := n.searchRegexChildren(method, path)
-		if child != nil {
-			return child, handler, params
-		}
-	}
-
 	return found, handler, params
 }
 
-func (n *node) searchRegexChildren(method, path string) (found *node, handler HandlerFunc, params []string) {
+func (n *node) searchRegexChild(method, path string) (found *node, handler HandlerFunc, params []string) {
 	for _, child := range n.regexChild {
 		re := child.regExpr
 		match := re.FindStringSubmatch(path)
@@ -376,11 +376,11 @@ func (n *node) dumpTree(prefix, nodeType string) string {
 	if n.wildcardChild != nil {
 		line += n.wildcardChild.dumpTree(prefix, ":")
 	}
-	if n.catchAllChild != nil {
-		line += n.catchAllChild.dumpTree(prefix, "*")
-	}
 	for _, child := range n.regexChild {
 		line += child.dumpTree(prefix, "~")
+	}
+	if n.catchAllChild != nil {
+		line += n.catchAllChild.dumpTree(prefix, "*")
 	}
 	return line
 }

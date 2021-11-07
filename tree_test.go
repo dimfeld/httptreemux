@@ -164,12 +164,18 @@ func TestTree(t *testing.T) {
 	addPath(t, tree, `/smith/~^.+$`)
 	addPath(t, tree, `/smith/abc/~^some-(?P<var1>\w+)-(?P<var2>\d+)-(.*)$`)
 	addPath(t, tree, `/smith/abc/~^some-.*second.*$`) // the previous one will be matched first
+	addPath(t, tree, "/images3/*path")
+	addPath(t, tree, `/images3/~^(?P<category>\w+)-(?P<name>.+)$`)
 
 	testPath(t, tree, "/smith/abc/some-holiday-202110-hawaii-beach", `/smith/abc/~^some-(?P<var1>\w+)-(?P<var2>\d+)-(.*)$`,
 		map[string]string{"var1": "holiday", "var2": "202110"})
 	testPath(t, tree, "/smith/abc/some-matchthesecondregex", `/smith/abc/~^some-.*second.*$`, nil)
 	testPath(t, tree, "/smith/abc/third-no-specific-match", `/smith/~^.+$`, nil)
 	testPath(t, tree, "/users/123/something/notmatch", `/users/~^.+$`, nil)
+	testPath(t, tree, "/images3/categorya-img1.jpg", `/images3/~^(?P<category>\w+)-(?P<name>.+)$`,
+		map[string]string{"category": "categorya", "name": "img1.jpg"})
+	testPath(t, tree, "/images3/nocategoryimg.jpg", "/images3/*path",
+		map[string]string{"path": "nocategoryimg.jpg"})
 
 	testPath(t, tree, "/users/abc/updatePassword", "/users/:id/updatePassword",
 		map[string]string{"id": "abc"})
