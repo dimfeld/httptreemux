@@ -87,19 +87,20 @@ func (g *Group) UseHandler(middleware func(http.Handler) http.Handler) {
 // 3. Finally, a catch-all rule will match when the earlier path segments have matched, and none of the static or wildcard conditions have matched. Catch-all rules must be at the end of a pattern.
 //
 // So with the following patterns, we'll see certain matches:
-//	 router = httptreemux.New()
-//	 router.GET("/:page", pageHandler)
-//	 router.GET("/:year/:month/:post", postHandler)
-//	 router.GET("/:year/:month", archiveHandler)
-//	 router.GET("/images/*path", staticHandler)
-//	 router.GET("/favicon.ico", staticHandler)
 //
-//	 /abc will match /:page
-//	 /2014/05 will match /:year/:month
-//	 /2014/05/really-great-blog-post will match /:year/:month/:post
-//	 /images/CoolImage.gif will match /images/*path
-//	 /images/2014/05/MayImage.jpg will also match /images/*path, with all the text after /images stored in the variable path.
-//	 /favicon.ico will match /favicon.ico
+//	router = httptreemux.New()
+//	router.GET("/:page", pageHandler)
+//	router.GET("/:year/:month/:post", postHandler)
+//	router.GET("/:year/:month", archiveHandler)
+//	router.GET("/images/*path", staticHandler)
+//	router.GET("/favicon.ico", staticHandler)
+//
+//	/abc will match /:page
+//	/2014/05 will match /:year/:month
+//	/2014/05/really-great-blog-post will match /:year/:month/:post
+//	/images/CoolImage.gif will match /images/*path
+//	/images/2014/05/MayImage.jpg will also match /images/*path, with all the text after /images stored in the variable path.
+//	/favicon.ico will match /favicon.ico
 //
 // # Trailing Slashes
 //
@@ -120,16 +121,16 @@ func (g *Group) UseHandler(middleware func(http.Handler) http.Handler) {
 // can not be predicted. If trailing slash removal is desired on catch-all patterns, set
 // TreeMux.RemoveCatchAllTrailingSlash to true.
 //
-// 	router = httptreemux.New()
-// 	router.GET("/about", pageHandler)
-// 	router.GET("/posts/", postIndexHandler)
-// 	router.POST("/posts", postFormHandler)
+//	router = httptreemux.New()
+//	router.GET("/about", pageHandler)
+//	router.GET("/posts/", postIndexHandler)
+//	router.POST("/posts", postFormHandler)
 //
-// 	GET /about will match normally.
-// 	GET /about/ will redirect to /about.
-// 	GET /posts will redirect to /posts/.
-// 	GET /posts/ will match normally.
-// 	POST /posts will redirect to /posts/, because the GET method used a trailing slash.
+//	GET /about will match normally.
+//	GET /about/ will redirect to /about.
+//	GET /posts will redirect to /posts/.
+//	GET /posts/ will match normally.
+//	POST /posts will redirect to /posts/, because the GET method used a trailing slash.
 func (g *Group) Handle(method string, path string, handler HandlerFunc) {
 	g.mux.mutex.Lock()
 	defer g.mux.mutex.Unlock()

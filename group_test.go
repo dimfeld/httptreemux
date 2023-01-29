@@ -103,7 +103,7 @@ func TestInvalidPath(t *testing.T) {
 	New().NewGroup("foo")
 }
 
-//Liberally borrowed from router_test
+// Liberally borrowed from router_test
 func testGroupMethods(t *testing.T, reqGen RequestCreator, headCanUseGet bool) {
 	var result string
 	makeHandler := func(method string) HandlerFunc {

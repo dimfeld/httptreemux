@@ -149,7 +149,6 @@ func testMethods(t *testing.T, newRequest RequestCreator, headCanUseGet bool, us
 	testMethod("HEAD", "HEAD")
 }
 
-
 func TestCaseInsensitiveRouting(t *testing.T) {
 	router := New()
 	// create case-insensitive route

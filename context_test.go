@@ -1,3 +1,4 @@
+//go:build go1.7
 // +build go1.7
 
 package httptreemux
@@ -259,7 +260,7 @@ func TestNewContextGroup(t *testing.T) {
 
 type ContextGroupHandler struct{}
 
-//	adhere to the http.Handler interface
+// adhere to the http.Handler interface
 func (f ContextGroupHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "GET":
