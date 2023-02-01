@@ -53,8 +53,8 @@ type LookupResult struct {
 	// This will generally be `http.StatusNotFound` or `http.StatusMethodNotAllowed` for an
 	// error case. On a normal success, the statusCode will be `http.StatusOK`. A redirect code
 	// will also be used in the case
-	StatusCode  int
-	handler     HandlerFunc
+	StatusCode int
+	handler    HandlerFunc
 	// Params represents the key value pairs of the path parameters.
 	Params      map[string]string
 	leafHandler map[string]HandlerFunc // Only has a value when StatusCode is MethodNotAllowed.

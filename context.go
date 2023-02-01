@@ -1,3 +1,4 @@
+//go:build go1.7
 // +build go1.7
 
 package httptreemux
@@ -29,19 +30,18 @@ func (cg *ContextGroup) UseHandler(middleware func(http.Handler) http.Handler) {
 // The choice of using a *Group as the receiver, as opposed to a function parameter, allows chaining
 // while method calls between a TreeMux, Group, and ContextGroup. For example:
 //
-//              tree := httptreemux.New()
-//              group := tree.NewGroup("/api")
+//	tree := httptreemux.New()
+//	group := tree.NewGroup("/api")
 //
-//              group.GET("/v1", func(w http.ResponseWriter, r *http.Request, params map[string]string) {
-//                  w.Write([]byte(`GET /api/v1`))
-//              })
+//	group.GET("/v1", func(w http.ResponseWriter, r *http.Request, params map[string]string) {
+//	    w.Write([]byte(`GET /api/v1`))
+//	})
 //
-//              group.UsingContext().GET("/v2", func(w http.ResponseWriter, r *http.Request) {
-//                  w.Write([]byte(`GET /api/v2`))
-//              })
+//	group.UsingContext().GET("/v2", func(w http.ResponseWriter, r *http.Request) {
+//	    w.Write([]byte(`GET /api/v2`))
+//	})
 //
-//              http.ListenAndServe(":8080", tree)
-//
+//	http.ListenAndServe(":8080", tree)
 func (g *Group) UsingContext() *ContextGroup {
 	return &ContextGroup{g}
 }
@@ -60,7 +60,7 @@ func (cg *ContextGroup) wrapHandler(path string, handler HandlerFunc) HandlerFun
 		handler = handlerWithMiddlewares(handler, cg.group.stack)
 	}
 
-	//add the context data after adding all middleware
+	// add the context data after adding all middleware
 	fullPath := cg.group.path + path
 	return func(writer http.ResponseWriter, request *http.Request, m map[string]string) {
 		routeData := &contextData{
