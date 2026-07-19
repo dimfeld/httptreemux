@@ -132,6 +132,15 @@ func (t *TreeMux) lookup(w http.ResponseWriter, r *http.Request) (result LookupR
 		unescapedPath = strings.ToLower(unescapedPath)
 	}
 
+	// A malformed request line can leave path empty or without a leading
+	// slash, e.g. a RequestURI of "?" collapses to "" once the query string
+	// is stripped. The searches below index path with path[pathLen-1] and
+	// path[1:], so anything that is not a rooted path cannot match a route and
+	// would otherwise panic. Treat it as not found.
+	if pathLen == 0 || path[0] != '/' {
+		return
+	}
+
 	trailingSlash := path[pathLen-1] == '/' && pathLen > 1
 	if trailingSlash && t.RedirectTrailingSlash {
 		path = path[:pathLen-1]

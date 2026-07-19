@@ -1060,6 +1060,30 @@ func TestLookup(t *testing.T) {
 	tryLookup("POST", "/user/dimfeld/", true, http.StatusTemporaryRedirect)
 }
 
+// A RequestURI that collapses to an empty path once the query string is
+// stripped (for example a bare "?") used to index the path slice out of range
+// and panic. Such malformed requests, common from vulnerability scanners,
+// should just report not found.
+func TestLookupMalformedRequestURI(t *testing.T) {
+	router := New()
+	router.GET("/foo", simpleHandler)
+
+	for _, uri := range []string{"?", "*", "foo"} {
+		r, _ := http.NewRequest("GET", "http://example.com/foo", nil)
+		r.RequestURI = uri
+		r.URL.RawQuery = ""
+		w := &mockResponseWriter{}
+
+		lr, found := router.Lookup(w, r)
+		if found {
+			t.Errorf("RequestURI %q expected not found", uri)
+		}
+		if lr.StatusCode != http.StatusNotFound {
+			t.Errorf("RequestURI %q expected status %d, saw %d", uri, http.StatusNotFound, lr.StatusCode)
+		}
+	}
+}
+
 func TestRedirectEscapedPath(t *testing.T) {
 	router := New()
 
