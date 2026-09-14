@@ -132,10 +132,18 @@ func (t *TreeMux) lookup(w http.ResponseWriter, r *http.Request) (result LookupR
 		unescapedPath = strings.ToLower(unescapedPath)
 	}
 
+	// RequestURI like "?" or "*" strips to an empty path; scanners also send
+	// paths without a leading slash. Those can never match a route.
+	if pathLen == 0 || path[0] != '/' {
+		return
+	}
+
 	trailingSlash := path[pathLen-1] == '/' && pathLen > 1
 	if trailingSlash && t.RedirectTrailingSlash {
 		path = path[:pathLen-1]
-		unescapedPath = unescapedPath[:len(unescapedPath)-1]
+		if len(unescapedPath) > 0 {
+			unescapedPath = unescapedPath[:len(unescapedPath)-1]
+		}
 	}
 
 	n, handler, params := t.root.search(r.Method, path[1:])

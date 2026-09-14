@@ -1060,6 +1060,51 @@ func TestLookup(t *testing.T) {
 	tryLookup("POST", "/user/dimfeld/", true, http.StatusTemporaryRedirect)
 }
 
+func TestLookupMalformedRequestURI(t *testing.T) {
+	router := New()
+	router.GET("/", simpleHandler)
+	router.GET("/images/:name", simpleHandler)
+
+	// These strip to an empty path or lack a leading slash, so they used to
+	// panic on path[pathLen-1] / path[1:] (#88).
+	notFound := []string{"?", "*", "images/no-slash"}
+	for _, path := range notFound {
+		r, err := newRequest("GET", "/", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		r.RequestURI = path
+		w := &mockResponseWriter{}
+		func() {
+			defer func() {
+				if rec := recover(); rec != nil {
+					t.Errorf("Lookup(%q) panicked: %v", path, rec)
+				}
+			}()
+			_, found := router.Lookup(w, r)
+			if found {
+				t.Errorf("Lookup(%q) found a route", path)
+			}
+			if w.code != 0 || w.calledWrite {
+				t.Errorf("Lookup(%q) wrote to the response", path)
+			}
+		}()
+	}
+
+	// Reporter's scanner URL: must not panic (may 404 or redirect-clean).
+	r, err := newRequest("GET", "/images/../cgi/cgi_i_filter.js", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := &mockResponseWriter{}
+	defer func() {
+		if rec := recover(); rec != nil {
+			t.Errorf("Lookup(%q) panicked: %v", r.RequestURI, rec)
+		}
+	}()
+	router.Lookup(w, r)
+}
+
 func TestRedirectEscapedPath(t *testing.T) {
 	router := New()
 
